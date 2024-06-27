@@ -1,4 +1,4 @@
-# OP-TEE Remote Attestation
+# OP-TEE Remote Attestation with VERAISON Verification.
 <!--
 
 認証 authentication
@@ -6,8 +6,9 @@
 
 
 
-This document explains how to set up the OP-TEE Remote Attestation and VERAISON Verification using Docker containers.
-It can run on Rasperry Pi 3 with OP-TEE too.
+This document explains how to set up the [OP-TEE](https://github.com/OP-TEE/optee_os) Remote Attestation and [VERAISON](https://github.com/veraison) Verification using Docker containers.
+It can run on Rasperry Pi 3  (Arm Cortex-A TrustZone).
+
 The following figure shows the steps for provisioning (0), remote attestation (1)-(5), and secure communication (6).
 ![](OPTEE-RA.png)
 
@@ -546,6 +547,11 @@ docker stop relying-party-service
 docker network rm veraison-net
 ```
 
+## Acknowlegement
+
+This work was supported by JST, CREST Grant Number JPMJCR21M3 ([ZeroTrust IoT Project](https://zt-iot.nii.ac.jp/en/)), Japan.
+
+
 <!--
 -------------------------------------------------------------------------------------------------------------------
 -->
@@ -1066,3 +1072,5 @@ docker stop relying-party-service
 docker network rm veraison-net
 ```
 
+## 謝辞
+研究は、JST、CREST、JPMJCR21M3 ([Zero Trust IoT プロジェクト](https://zt-iot.nii.ac.jp/)) の支援を受けたものです。
