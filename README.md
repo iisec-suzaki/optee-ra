@@ -71,7 +71,7 @@ veraison stores
 
 If the registration is successful, you will get the following output. This indicates the values registered with the Verifier.
 
-```json
+```json {
 TRUST ANCHORS:
 --------------
 {
@@ -102,6 +102,7 @@ ENDORSEMENTS:
     "PSA_IOT.measurement-value": "MbgFqjT4jfR+fK1O4YyQtZUYD0nhXh7GfhM0EmR6tgc=",
     "PSA_IOT.signer-id": "rLsRx+TaIXIFUjzkzhokWuGiOa48a/2eeHH35di66Gs="
   }
+}
 }
 ```
 
