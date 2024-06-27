@@ -1,0 +1,26 @@
+# Set the base style to LLVM, which provides a good starting point.
+BasedOnStyle: LLVM
+
+# Use spaces instead of tabs for indentation.
+UseTab: Never
+
+# Set the number of spaces for each indentation level.
+IndentWidth: 4
+
+# Set the width of tab characters in spaces.
+TabWidth: 4
+
+# Limit the line length to a reasonable value for better readability.
+ColumnLimit: 80
+
+# Enable alignment for consecutive macros to make the code more readable.
+AlignConsecutiveMacros: true
+
+# Align consecutive assignment operators, makes the code more readable.
+AlignConsecutiveAssignments: false
+
+# Align consecutive declarations, also for readability.
+AlignConsecutiveDeclarations: false
+
+# Prevent reflowing of comments
+ReflowComments: false
