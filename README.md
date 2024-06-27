@@ -71,7 +71,7 @@ veraison stores
 
 If the registration is successful, you will get the following output. This indicates the values registered with the Verifier.
 
-```json {
+```txt 
 TRUST ANCHORS:
 --------------
 {
@@ -102,7 +102,6 @@ ENDORSEMENTS:
     "PSA_IOT.measurement-value": "MbgFqjT4jfR+fK1O4YyQtZUYD0nhXh7GfhM0EmR6tgc=",
     "PSA_IOT.signer-id": "rLsRx+TaIXIFUjzkzhokWuGiOa48a/2eeHH35di66Gs="
   }
-}
 }
 ```
 
@@ -247,7 +246,7 @@ docker logs relying-party-service
 
 The attestation result is recorded in the `ear.status` field. If it is `affirming`, it means that the correct attetation result was obtained.
 
-```json
+```txt
 2024/02/22 05:19:18 Received request: POST /challenge-response/v1/newSession?nonceSize=32
 2024/02/22 05:19:18 Received response: 201 Created
 2024/02/22 05:19:19 Received request: POST /challenge-response/v1/session/ed70cc0d-d141-11ee-9588-623338313838
@@ -335,7 +334,7 @@ Actually, after rewriting the code, send the attestation request. In the termina
 
 After that, follow step 4.5 to send the attestation request, and follow step 5 to check the results. You will get an attestation result similar to the following. The `"ear.status": "contraindicated"` indicates that the attestation has failed.
 
-```json
+```txt
 2024/02/22 05:36:19 Received request: POST /challenge-response/v1/newSession?nonceSize=32
 2024/02/22 05:36:19 Received response: 201 Created
 2024/02/22 05:36:20 Received request: POST /challenge-response/v1/session/4e2f256e-d144-11ee-9588-623338313838
@@ -393,7 +392,7 @@ D/TC:? 0 cmd_get_cbor_evidence:82 b64_measurement_value: gw9v98IV8ozl5nHpsMwl9W5
 Register this value with provisioning. To do this, modify the `digests` field in [`provisioning/data/comid-psa-refval.json`](provisioning/data/comid-psa-refval.json) as follows:
 Also, since the implementation ID has been changed to `acme-implementation-id-000000002`, modify the `psa.impl-id` fields in both [`provisioning/data/comid-psa-refval.json`](provisioning/data/comid-psa-refval.json) and [`provisioning/data/comid-psa-ta.json`](provisioning/data/comid-psa-ta.json) as follows. Note that the `psa.impl-id` field must register the base64 encoded value of the implementation ID. For example, you can calculate it with a command like `echo -n "acme-implementation-id-000000002" | base64`.
 
-```json
+```txt
 diff --git a/provisoning/data/comid-psa-refval.json b/provisoning/data/comid-psa-refval.json
 index fd7965a..db675c1 100644
 --- a/provisoning/data/comid-psa-refval.json
@@ -617,7 +616,7 @@ veraison stores
 ```
 
 登録が成功すると、以下のような出力が得られます。これは Verifier に登録された値を示しています。
-```json
+```txt
 TRUST ANCHORS:
 --------------
 {
@@ -778,7 +777,7 @@ docker logs relying-party-service
 ```
 
 アテステーション結果は `ear.status` の欄に記載されており、`affirming` であれば正しいアテステーション結果が得られたことを意味しています。
-```json
+```txt
 2024/02/22 05:19:18 Received request: POST /challenge-response/v1/newSession?nonceSize=32
 2024/02/22 05:19:18 Received response: 201 Created
 2024/02/22 05:19:19 Received request: POST /challenge-response/v1/session/ed70cc0d-d141-11ee-9588-623338313838
@@ -863,7 +862,7 @@ index 4380753..d9cad98 100644
 実際に、コードを書き換えた後にアテステーションリクエストを送信してみます。手順 4.4. で QEMU を起動したターミナルで `ctrl+c` をして、一度 QEMU を終了します。その後、もう一度手順 4.4 に従い、TA の再ビルド・QEMU の再起動をします（`echo` コマンドで `subdirs-y += remote_attestation` の行を追加するコマンドを再実行する必要はないです）。
 
 その後、手順 4.5. に従い、アテステーションリクエストを送り、手順 5. に従い結果を確認すると、以下のようなアテステーション結果が得られます。`"ear.status": "contraindicated"` になっており、アテステーションに失敗していることがわかります。 
-```json
+```txt
 2024/02/22 05:36:19 Received request: POST /challenge-response/v1/newSession?nonceSize=32
 2024/02/22 05:36:19 Received response: 201 Created
 2024/02/22 05:36:20 Received request: POST /challenge-response/v1/session/4e2f256e-d144-11ee-9588-623338313838
@@ -919,7 +918,7 @@ D/TC:? 0 cmd_get_cbor_evidence:82 b64_measurement_value: gw9v98IV8ozl5nHpsMwl9W5
 
 この値を provisioning で登録します。そのためには、[`provisoning/data/comid-psa-refval.json`](provisoning/data/comid-psa-refval.json) の `digests` の欄を以下のように書き換えてください。
 また、implementation ID も `acme-implementation-id-000000002` に変更しているため、[`provisoning/data/comid-psa-refval.json`](provisoning/data/comid-psa-refval.json) と [`provisoning/data/comid-psa-ta.json`](provisoning/data/comid-psa-ta.json) の `psa.impl-id` の欄を以下のように書き換えてください。注意しとして、`psa.impl-id` の欄は implementation ID を base64 エンコードした値を登録する必要があります。例えば、`echo -n "acme-implementation-id-000000002" | base64` のようなコマンドで計算できます。
-```json
+```txt
 diff --git a/provisoning/data/comid-psa-refval.json b/provisoning/data/comid-psa-refval.json
 index fd7965a..db675c1 100644
 --- a/provisoning/data/comid-psa-refval.json
