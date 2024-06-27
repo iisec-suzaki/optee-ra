@@ -3,6 +3,7 @@
 
 Provisioning is a script to register the Trust Anchor and Reference Value to the Verifier. It wraps the commands provided by Veraison.
 
+![](../fig/OPTEE-RA.png)
 
 ## Execution Method
 
@@ -76,11 +77,14 @@ You can automatically execute the above steps by running the following command.
 <!--
 -------------------------------------------------------------------------------------------------------------------
 -->
-
-
+---
+---
+---
 # 日本語解説 Provosioning
 
 Provosioning は Verifier に対して、アテステーションで使うTrust AnchorとReference Valueを登録するスクリプトです。Veraison が提供するコマンドをラッパーしています。
+
+![](../fig/OPTEE-RA.png)
 
 ## 実行方法
 

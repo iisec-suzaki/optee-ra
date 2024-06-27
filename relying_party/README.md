@@ -2,6 +2,8 @@
 
 The Relying Party is a server that wants to trust a TA (Trusted Application) in order to provide data and services. In the current implementation, it is a simple proxy server that receives remote attestation requests from the Attester and mediates communication between the Attester and the Verifier.
 
+![](../fig/OPTEE-RA.png)
+
 ## Execution Method
 
 Run the following command to start the container for the Relying Party.
@@ -25,11 +27,15 @@ go build -o rp main.go
 <!--
 -------------------------------------------------------------------------------------------------------------------
 -->
-
+---
+---
+---
 # 日本語解説 Relying Party
 
 Relying Party は、TA(Trusted Application)を信頼してデータやサービス提供するためにTAを信頼したいサーバーです。
 現在の実装ではAttester からのリモートアテステーションリクエストを受け、Attester と Verifier の間の通信を仲介する単純なプロキシサーバーです。
+
+![](../fig/OPTEE-RA.png)
 
 ## 実行方法
 
