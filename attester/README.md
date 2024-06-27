@@ -2,7 +2,7 @@
 
 The Attester is a client that sends remote authentication requests to the Relying Party (Verifier). This client has a TEE (Trusted Execution Environment, namely Arm TrustZone) and runs on OP-TEE. The Attester is built on QEMU.
 
-![](../fig/OPTEE-RA.png)
+![](../OPTEE-RA.png)
 
 ## Execution Method
 
@@ -91,7 +91,7 @@ clang-format -i -style=file remote_attestation/host/*.c remote_attestation/host/
 
 Attester は Relying Party (Verifier) に対して、リモート認証のリクエストを送るクライアントです。このクライアントはTEE(Trusted Execution Environment, 具体的にはArm TrustZone)を持ち、 OP-TEE を実行します。現在のAttestaerは QEMU の上で構築されます。
 
-![](../fig/OPTEE-RA.png)
+![](../OPTEE-RA.png)
 
 ## 実行方法
 

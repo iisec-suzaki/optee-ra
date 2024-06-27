@@ -9,7 +9,7 @@
 This document explains how to set up the OP-TEE Remote Attestation and VERAISON Verification using Docker containers.
 It can run on Rasperry Pi 3 with OP-TEE too.
 The following figure shows the steps for provisioning (0), remote attestation (1)-(5), and secure communication (6).
-![](fig/OPTEE-RA.png)
+![](OPTEE-RA.png)
 
 
 ## Prerequisites
@@ -558,7 +558,7 @@ docker network rm veraison-net
 OP-TEEが実行可能なRaspberry Pi3でも動作が確認できています。
 
 下図はプロビジョニング(0)、リモートアテステーション(1)-(5)、セキュアコミュニケーション(6)の手順を示しています。
-![](fig/OPTEE-RA.png)
+![](OPTEE-RA.png)
 
 ## 前提条件
 
