@@ -6,7 +6,7 @@
 
 
 
-This document explains how to set up the [OP-TEE](https://github.com/OP-TEE/optee_os) Remote Attestation and [VERAISON](https://github.com/veraison) Verification using Docker containers.
+This document explains how to set up the [OP-TEE](https://github.com/OP-TEE/optee_os) Remote Attestation and [VERAISON](https://github.com/veraison) Verification using QEMU and Docker containers.
 It can run on Rasperry Pi 3B+  (Arm Cortex-A TrustZone).
 
 The following figure shows the steps for provisioning (0), remote attestation (1)-(5), and secure communication (6).
@@ -560,7 +560,7 @@ This work was supported by JST, CREST Grant Number JPMJCR21M3 ([ZeroTrust IoT Pr
 ---
 # 日本語解説 OP-TEE Remote Attestation
 
-このドキュメントではDockerコンテナを用いた[OP-TEE](https://github.com/OP-TEE/optee_os) Remote Attestation 実行環境の構築と、[VERAISON](https://github.com/veraison) Verification を活用した一連の動作を確認手順を説明します。
+このドキュメントではQEMUとDockerコンテナを用いた[OP-TEE](https://github.com/OP-TEE/optee_os) Remote Attestation 実行環境の構築と、[VERAISON](https://github.com/veraison) Verification を活用した一連の動作を確認手順を説明します。
 OP-TEEはRaspberry Pi 3B+ (Arm Cortex-A TrustZone)でも動作が確認できています。
 
 下図はプロビジョニング(0)、リモートアテステーション(1)-(5)、セキュアコミュニケーション(6)の手順を示しています。
