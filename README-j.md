@@ -22,6 +22,13 @@ OP-TEEはRaspberry Pi 3B+ (Arm Cortex-A TrustZone)でも動作が確認できて
 
 以下の 6 つの手順に従い、リモートアテステーションの一連の流れをテストしてください。
 
+### 0. このgithubのクローン
+最初に行うgit clone
+```sh
+git clone https://github.com/iisec-suzaki/optee-ra
+cd optee-ra
+```
+
 ### 1. Veraison が提供するサービスの起動
 
 はじめに、ホストマシン上で動作させるサービスを起動します。
