@@ -16,7 +16,7 @@ OP-TEEはRaspberry Pi 3B+ (Arm Cortex-A TrustZone)でも動作が確認できて
 
 * Docker がインストールされていること
 * Docker デーモンが稼働していること
-* Docker 用に20GBのディスクが残っていること(`docker system df`で確認できる)
+* Docker 用に30-40GBのディスクが残っていること(`docker system df`で確認できる。容量が少なければ`docker system prune --volumes --all`で確保を勧める。)
 * `jq` がインストールされていること（Ubuntu であれば、`sudo apt-get install jq`）
 
 ## 実行方法
