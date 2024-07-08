@@ -1,4 +1,3 @@
-
 <!--
 -------------------------------------------------------------------------------------------------------------------
 -->
@@ -248,7 +247,7 @@ Completed sending the evidence and receiving the attestation result.
 
 ### 5. 検証の実行と結果の確認
 
-以下のコマンドで、relying party のターミナルのログを確認できます。
+もう一つターミナルを開き、以下のコマンドでrelying party のターミナルのログを確認できます。
 ```sh
 docker logs relying-party-service
 ```

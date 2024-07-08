@@ -19,24 +19,59 @@ To run the developed artifacts, you need to prepare an environment that meets th
 
 * Docker is installed
 * Docker daemon is running
+* Ensure that 30-40GB of disk space is available for Docker (you can check this with `docker system df`). If the available space is insufficient, it is recommended to free up space using `docker system prune --volumes --all`.
 * `jq` is installed (on Ubuntu, you can install it with `sudo apt-get install jq`)
 
 ## Execution Method
 
-Please follow these six steps to test the series of operations for remote attestation.
+Follow these steps from 0 to 6 to test the entire process of remote attestation.
+
+
+### 0. Clone this GitHub repository
+First, retrieve the source code for optee-ra by running git clone.
+
+```
+git clone https://github.com/iisec-suzaki/optee-ra
+cd optee-ra
+```
 
 
 ### 1. Starting the Services Provided by Veraison
 
-First, start the services that will run on the host machine.
-You can start Veraison with the following commands. Note that the startup process may take some time.
+Retrieve the Veraison source from GitHub.
 
 
 ```sh
 git clone https://github.com/veraison/services.git
-cd services && git checkout -b b50b67d && cd ..
-make -C services docker-deploy
+cd services && git checkout b50b67d && cd ..
+```
 
+You may see the following message, but it is not a problem.
+```
+Note: switching to 'b50b67d'.
+
+You are in 'detached HEAD' state. You can look around, make experimental
+changes and commit them, and you can discard any commits you make in this
+state without impacting any branches by switching back to a branch.
+
+If you want to create a new branch to retain commits you create, you may
+do so (now or later) by using -c with the switch command. Example:
+
+  git switch -c <new-branch-name>
+
+Or undo this operation with:
+
+  git switch -
+
+Turn off this advice by setting config variable advice.detachedHead to false
+
+HEAD is now at b50b67d Merge pull request #208 from aj-stein-nist/patch-1
+```
+
+Next, start the services that will run on the host machine.
+You can start Veraison with the following commands. Note that the startup process may take some time.
+```sh
+make -C services docker-deploy
 ```
 
 After starting the services, you can check their status with the following command. If you are using zsh, execute `source services/deployments/docker/env.zsh` instead of `source services/deployments/docker/env.bash` .
@@ -237,8 +272,7 @@ Completed sending the evidence and receiving the attestation result.
 ```
 
 ### 5. Performing Verification and Checking Results
-
-You can check the logs of the relying party terminal with the following command.
+Open another terminal and use the following command to check the logs of the relying party terminal.
 
 ```sh
 docker logs relying-party-service
@@ -558,7 +592,11 @@ This work was supported by JST, CREST Grant Number JPMJCR21M3 ([ZeroTrust IoT Pr
 ---
 ---
 ---
-# 日本語解説 OP-TEE Remote Attestation
+
+<!--
+-------------------------------------------------------------------------------------------------------------------
+-->
+# 日本語解説 OP-TEE Remote Attestation with VERAISON Verification
 
 このドキュメントではQEMUとDockerコンテナを用いた[OP-TEE](https://github.com/OP-TEE/optee_os) Remote Attestation 実行環境の構築と、[VERAISON](https://github.com/veraison) Verification を活用した一連の動作を確認手順を説明します。
 OP-TEEはRaspberry Pi 3B+ (Arm Cortex-A TrustZone)でも動作が確認できています。
@@ -572,19 +610,52 @@ OP-TEEはRaspberry Pi 3B+ (Arm Cortex-A TrustZone)でも動作が確認できて
 
 * Docker がインストールされていること
 * Docker デーモンが稼働していること
+* Docker 用に30-40GBのディスクが残っていること(`docker system df`で確認できる。容量が少なければ`docker system prune --volumes --all`で確保を勧める。)
 * `jq` がインストールされていること（Ubuntu であれば、`sudo apt-get install jq`）
 
 ## 実行方法
 
-以下の 6 つの手順に従い、リモートアテステーションの一連の流れをテストしてください。
+以下の 0 から 6 の手順に従い、リモートアテステーションの一連の流れをテストしてください。
+
+### 0. このgithubのクローン
+最初にgit cloneによりoptee-raのソースを取り寄せます。
+```sh
+git clone https://github.com/iisec-suzaki/optee-ra
+cd optee-ra
+```
 
 ### 1. Veraison が提供するサービスの起動
 
-はじめに、ホストマシン上で動作させるサービスを起動します。
-以下のコマンドにより、Veraison を起動することができます。起動には時間がかかります。
+Veraisonのソースをgithubから取り寄せます。
 ```sh
 git clone https://github.com/veraison/services.git
-cd services && git checkout -b b50b67d && cd ..
+cd services && git checkout b50b67d && cd ..
+```
+この際に下記のメッセージがでますが、問題ありません。
+```
+Note: switching to 'b50b67d'.
+
+You are in 'detached HEAD' state. You can look around, make experimental
+changes and commit them, and you can discard any commits you make in this
+state without impacting any branches by switching back to a branch.
+
+If you want to create a new branch to retain commits you create, you may
+do so (now or later) by using -c with the switch command. Example:
+
+  git switch -c <new-branch-name>
+
+Or undo this operation with:
+
+  git switch -
+
+Turn off this advice by setting config variable advice.detachedHead to false
+
+HEAD is now at b50b67d Merge pull request #208 from aj-stein-nist/patch-1
+```
+
+次にホストマシン上で動作させるサービスを起動します。
+以下のコマンドにより、Veraison を起動することができます。起動には時間がかかります。
+```sh
 make -C services docker-deploy
 ```
 
@@ -771,7 +842,7 @@ Completed sending the evidence and receiving the attestation result.
 
 ### 5. 検証の実行と結果の確認
 
-以下のコマンドで、relying party のターミナルのログを確認できます。
+もう一つターミナルを開き、以下のコマンドでrelying party のターミナルのログを確認できます。
 ```sh
 docker logs relying-party-service
 ```
