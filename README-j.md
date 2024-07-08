@@ -16,14 +16,15 @@ OP-TEEはRaspberry Pi 3B+ (Arm Cortex-A TrustZone)でも動作が確認できて
 
 * Docker がインストールされていること
 * Docker デーモンが稼働していること
+* Docker 用に20GBのディスクが残っていること(docker system dfで確認できる)
 * `jq` がインストールされていること（Ubuntu であれば、`sudo apt-get install jq`）
 
 ## 実行方法
 
-以下の 6 つの手順に従い、リモートアテステーションの一連の流れをテストしてください。
+以下の 0 から 6 の手順に従い、リモートアテステーションの一連の流れをテストしてください。
 
 ### 0. このgithubのクローン
-最初に行うgit clone
+最初にgit cloneによりoptee-raのソースを取り寄せます。
 ```sh
 git clone https://github.com/iisec-suzaki/optee-ra
 cd optee-ra
@@ -31,11 +32,36 @@ cd optee-ra
 
 ### 1. Veraison が提供するサービスの起動
 
-はじめに、ホストマシン上で動作させるサービスを起動します。
-以下のコマンドにより、Veraison を起動することができます。起動には時間がかかります。
+Veraisonのソースをgithubから取り寄せます。
 ```sh
 git clone https://github.com/veraison/services.git
-cd services && git checkout -b b50b67d && cd ..
+cd services && git checkout b50b67d && cd ..
+```
+この際に下記のメッセージがでますが、問題ありません。
+```
+Note: switching to 'b50b67d'.
+
+You are in 'detached HEAD' state. You can look around, make experimental
+changes and commit them, and you can discard any commits you make in this
+state without impacting any branches by switching back to a branch.
+
+If you want to create a new branch to retain commits you create, you may
+do so (now or later) by using -c with the switch command. Example:
+
+  git switch -c <new-branch-name>
+
+Or undo this operation with:
+
+  git switch -
+
+Turn off this advice by setting config variable advice.detachedHead to false
+
+HEAD is now at b50b67d Merge pull request #208 from aj-stein-nist/patch-1
+```
+
+次にホストマシン上で動作させるサービスを起動します。
+以下のコマンドにより、Veraison を起動することができます。起動には時間がかかります。
+```sh
 make -C services docker-deploy
 ```
 
