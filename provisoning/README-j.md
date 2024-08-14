@@ -1,9 +1,9 @@
 <!--
 -------------------------------------------------------------------------------------------------------------------
 -->
-# 日本語解説 Provosioning
+# 日本語解説 Provisioning
 
-Provosioning は Verifier に対して、アテステーションで使うTrust AnchorとReference Valueを登録するスクリプトです。Veraison が提供するコマンドをラッパーしています。
+Provisioning は Verifier に対して、アテステーションで使うTrust AnchorとReference Valueを登録するスクリプトです。Veraison が提供するコマンドをラッパーしています。
 
 ![](../OPTEE-RA.png)
 
