@@ -12,6 +12,11 @@ It can run on Rasperry Pi 3B+  (Arm Cortex-A TrustZone).
 The following figure shows the steps for provisioning (0), remote attestation (1)-(5), and secure communication (6).
 ![](OPTEE-RA.png)
 
+## News
+
+Current Implementation and future work is presented at [FOSDEM 2025 Attestation Devroom](https://fosdem.org/2025/schedule/event/fosdem-2025-4952-remote-attestation-on-arm-trustzone-op-tee-with-veraison-verifier-current-status-and-future-plan-/)
+
+The code for this remote attestation is merged at [OP-TEE](https://github.com/OP-TEE/optee_os/pull/7006)
 
 ## Prerequisites
 
