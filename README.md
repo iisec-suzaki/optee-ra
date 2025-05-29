@@ -14,7 +14,9 @@ The following figure shows the steps for provisioning (0), remote attestation (1
 
 ## News
 
-Current Implementation and future work is presented at [FOSDEM 2025 Attestation Devroom](https://fosdem.org/2025/schedule/event/fosdem-2025-4952-remote-attestation-on-arm-trustzone-op-tee-with-veraison-verifier-current-status-and-future-plan-/)
+Current status is presented at [OpenSSF Day Tokyo 2025 (June/18 Wed @ Hilton Tokyo Odaiba)](https://events.linuxfoundation.org/openssf-community-day-japan/program/schedule/)
+
+Current implementation and future work is presented at [FOSDEM 2025 Attestation Devroom](https://fosdem.org/2025/schedule/event/fosdem-2025-4952-remote-attestation-on-arm-trustzone-op-tee-with-veraison-verifier-current-status-and-future-plan-/)
 
 The code for this remote attestation is merged at [OP-TEE](https://github.com/OP-TEE/optee_os/pull/7006)
 
