@@ -1,4 +1,4 @@
-FROM ubuntu:22.04
+FROM ubuntu:24.04
 ARG DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update \
@@ -18,10 +18,10 @@ ARG USERNAME=user
 ARG USER_UID=1000
 ARG USER_GID=${USER_UID}
 RUN groupadd -o --gid ${USER_GID} ${USERNAME} \
-    && useradd --uid ${USER_UID} --gid ${USER_GID} -m ${USERNAME}
+    && useradd -o --uid ${USER_UID} --gid ${USER_GID} -m ${USERNAME}
 
 # Create app directory
-ENV APP_DIR /app
+ENV APP_DIR=/app
 RUN mkdir ${APP_DIR} \
     && chown ${USERNAME}:${USERNAME} ${APP_DIR}
 
