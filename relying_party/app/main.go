@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"crypto/tls"
 	"encoding/json"
 	"io"
 	"io/ioutil"
@@ -13,7 +14,7 @@ import (
 )
 
 func main() {
-	targetBaseURL := "http://verification-service:8080" // Base URL for the forwarding target
+	targetBaseURL := "https://verification-service:8443" // Base URL for the forwarding target
 	log.Println("Relying party is starting...")
 	server := http.Server{
 		Addr:    ":8087",
@@ -30,7 +31,11 @@ func main() {
 		}
 
 		// Create a request for the forwarding endpoint
-		client := &http.Client{}
+		client := &http.Client{
+			Transport: &http.Transport{
+				TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+			},
+		}
 		proxyReq, err := http.NewRequest(req.Method, targetURL, req.Body)
 		if err != nil {
 			log.Printf("Error creating request: %v\n", err)
