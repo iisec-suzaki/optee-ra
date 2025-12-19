@@ -50,12 +50,12 @@ Retrieve the Veraison source from GitHub.
 
 ```sh
 git clone https://github.com/veraison/services.git
-cd services && git checkout b50b67d && cd ..
+cd services && git checkout 8f5734c && cd ..
 ```
 
 You may see the following message, but it is not a problem.
 ```
-Note: switching to 'b50b67d'.
+Note: switching to '8f5734c'.
 
 You are in 'detached HEAD' state. You can look around, make experimental
 changes and commit them, and you can discard any commits you make in this
@@ -72,7 +72,7 @@ Or undo this operation with:
 
 Turn off this advice by setting config variable advice.detachedHead to false
 
-HEAD is now at b50b67d Merge pull request #208 from aj-stein-nist/patch-1
+HEAD is now at 8f5734c Yogesh's review comments
 ```
 
 Next, start the services that will run on the host machine.
@@ -636,11 +636,11 @@ cd optee-ra
 Veraisonのソースをgithubから取り寄せます。
 ```sh
 git clone https://github.com/veraison/services.git
-cd services && git checkout b50b67d && cd ..
+cd services && git checkout 8f5734c && cd ..
 ```
 この際に下記のメッセージがでますが、問題ありません。
 ```
-Note: switching to 'b50b67d'.
+Note: switching to '8f5734c'.
 
 You are in 'detached HEAD' state. You can look around, make experimental
 changes and commit them, and you can discard any commits you make in this
@@ -657,7 +657,7 @@ Or undo this operation with:
 
 Turn off this advice by setting config variable advice.detachedHead to false
 
-HEAD is now at b50b67d Merge pull request #208 from aj-stein-nist/patch-1
+HEAD is now at 8f5734c Yogesh's review comments
 ```
 
 次にホストマシン上で動作させるサービスを起動します。
