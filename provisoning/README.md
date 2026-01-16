@@ -65,13 +65,26 @@ ENDORSEMENTS:
 }
 ```
 
+If you update reference values or see `ear.status` as `warning` with `executables not recognized`, clear the stores and re-run provisioning in a shell where `env.bash` is sourced.
+
+```sh
+veraison clear-stores
+./run.sh qemu
+```
+
+Use `imx` instead of `qemu` for i.MX 8M Plus.
+
 ## Easier Execution Method
 
 You can automatically execute the above steps by running the following command.
 ```sh
-./run.sh
-
+# QEMU (default)
+./run.sh qemu
+# i.MX 8M Plus
+./run.sh imx
 ```
+
+If you omit the argument, `qemu` is used.
 
 
 <!--
@@ -145,9 +158,23 @@ ENDORSEMENTS:
 }
 ```
 
+`ear.status` が `warning` で `executables not recognized` のようなログが出る場合は、古いエンドースメントが残っています。`env.bash` を source したシェルでストアをクリアし、provisioning をやり直してください。
+
+```sh
+veraison clear-stores
+./run.sh qemu
+```
+
+実機の場合は `imx` を指定します。
+
 ## より簡単な実行方法
 
 下のコマンドを実行することで、上の手順を自動で実行することができます。
 ```sh
-./run.sh
+# QEMU (default)
+./run.sh qemu
+# i.MX 8M Plus
+./run.sh imx
 ```
+
+引数を省略した場合は `qemu` が使われます。

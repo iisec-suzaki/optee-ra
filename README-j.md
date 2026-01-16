@@ -85,8 +85,13 @@ verification: running
 
 以下のコマンドで、Verifier に対して、`trust anchor` と `reference value` を登録します。これらの値は Attester から送信された evidence の検証に用いられます。登録する値を変更したい場合は `provisoning/data` 以下のファイルを改変してください。
 ```sh
-./provisoning/run.sh
+# QEMU (default)
+./provisoning/run.sh qemu
+# i.MX 8M Plus
+./provisoning/run.sh imx
 ```
+
+引数を省略した場合は `qemu` が使われます。
 
 登録された値は以下のコマンドで確認できます。
 ```sh
@@ -255,6 +260,13 @@ docker logs relying-party-service
 ```
 
 アテステーション結果は `ear.status` の欄に記載されており、`affirming` であれば正しいアテステーション結果が得られたことを意味しています。
+
+`ear.status` が `warning` で `executables not recognized` のようなログが出る場合は、古いエンドースメントが残っています。`env.bash` を source したシェルでストアをクリアし、provisioning をやり直してください（実機は `imx` を指定します）。
+
+```sh
+veraison clear-stores
+./provisoning/run.sh qemu
+```
 ```txt
 2024/02/22 05:19:18 Received request: POST /challenge-response/v1/newSession?nonceSize=32
 2024/02/22 05:19:18 Received response: 201 Created
