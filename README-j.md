@@ -149,6 +149,11 @@ ENDORSEMENTS:
 ./relying_party/container/start.sh
 ```
 
+Verifier が `https://verification-service:8080` 以外で動作している場合は、起動前に `VERIFICATION_SERVICE_URL` を設定してください（デフォルト: `https://verification-service:8080`）。
+```sh
+VERIFICATION_SERVICE_URL=https://verification-service:8443 ./relying_party/container/start.sh
+```
+
 以下のコマンドで Relying Party のログは確認できます。
 ```sh
 docker logs relying-party-service

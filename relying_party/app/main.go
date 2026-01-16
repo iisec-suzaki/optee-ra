@@ -14,7 +14,10 @@ import (
 )
 
 func main() {
-	targetBaseURL := "https://verification-service:8443" // Base URL for the forwarding target
+	targetBaseURL := os.Getenv("VERIFICATION_SERVICE_URL")
+	if targetBaseURL == "" {
+		targetBaseURL = "https://verification-service:8080"
+	}
 	log.Println("Relying party is starting...")
 	server := http.Server{
 		Addr:    ":8087",
