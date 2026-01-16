@@ -35,9 +35,8 @@ Attester はコンテナ上の QEMU の上で起動されます。以下の 5 �
 
 ### 4. ユーザが追加した CA/TA/PTA のビルドと、QEMU の起動とログイン
 
-手順 1. で起動したターミナルで以下コマンドをを実行してください。以下のコマンでは `/optee/optee_os/core/pta/sub.mk` を編集し、`subdirs-y += remote_attestation` の行を追加し、追加したアプリケーションを再ビルドし、QEMUを立ち上げます。
+手順 1. で起動したターミナルで以下コマンドを実行してください。追加したアプリケーションを再ビルドし、QEMUを起動します。
 ```sh
-echo "subdirs-y += remote_attestation" >> /optee/optee_os/core/pta/sub.mk
 make -C ${OPTEE_DIR}/build run CFG_REMOTE_ATTESTATION_PTA=y -j
 ```
 

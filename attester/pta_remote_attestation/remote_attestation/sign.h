@@ -21,9 +21,13 @@
                    to ensure that the provided buffer is sufficiently large to hold the 
                    signature in its specified format. The resulting size will indicate the 
                    actual size of the signature in bytes.
+  @param serialized_black_key      [in] CAAM black key for signing (NULL to use default key)
+  @param serialized_black_key_len  [in] Length of the serialized black key
   @return TEE_SUCCESS if successful
 */
 TEE_Result sign_ecdsa_sha256(const uint8_t *msg, size_t msg_len, uint8_t *sig,
-                             size_t *sig_len);
+                             size_t *sig_len,
+                             const uint8_t *serialized_black_key,
+                             size_t serialized_black_key_len);
 
 #endif /*PTA_REMOTE_ATTESTATION_SIGN_H*/

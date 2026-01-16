@@ -13,6 +13,8 @@
  *
  * [in]     memref[0]        Nonce
  * [out]    memref[1]        Output buffer
+ * [in]     memref[2]        Implementation ID
+ * [in]     memref[3]        (optional) Serialized black key for signing
  *
  * Return codes:
  * TEE_SUCCESS
@@ -21,5 +23,22 @@
  * TEE_ERROR_SHORT_BUFFER   - Output buffer size less than required
  */
 #define PTA_REMOTE_ATTESTATION_GET_CBOR_EVIDENCE 0x0
+
+/*
+ * Generate ECC P-256 keypair (CAAM black key)
+ *
+ * [out]    memref[0]        Serialized black key (size-probe allowed)
+ * [out]    memref[1]        Public X (32 bytes)
+ * [out]    memref[2]        Public Y (32 bytes)
+ */
+#define PTA_REMOTE_ATTESTATION_GENERATE_KEYPAIR 0x1
+
+/*
+ * Convert plain ECC private key to CAAM black key
+ *
+ * [in]     memref[0]        Plain private key d (32 bytes for P-256)
+ * [out]    memref[1]        Serialized black key (size-probe allowed)
+ */
+#define PTA_REMOTE_ATTESTATION_CONVERT_TO_BLACKKEY 0x2
 
 #endif /* __PTA_REMOTE_ATTESTATION_H */

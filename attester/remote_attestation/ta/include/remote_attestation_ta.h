@@ -14,6 +14,8 @@
 
 /* The function ID(s) implemented in this TA */
 #define TA_REMOTE_ATTESTATOIN_CMD_GEN_CBOR_EVIDENCE 0
+#define TA_REMOTE_ATTESTATION_CMD_GENERATE_BLACKKEY 1
+#define TA_REMOTE_ATTESTATION_CMD_CONVERT_TO_BLACKKEY 2
 
 /* Implementation ID used in PSA evidence */
 #define IMPLEMENTATION_ID     "acme-implementation-id-000000001"

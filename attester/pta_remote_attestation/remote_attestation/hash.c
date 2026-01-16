@@ -1,4 +1,5 @@
 #include <crypto/crypto.h>
+#include <kernel/user_access.h>
 #include <kernel/user_mode_ctx.h>
 
 #include "hash.h"
@@ -7,11 +8,14 @@
  * Is region valid for hashing?
  * Exclude writable regions as well as those that are not specific to the TA
  * (ldelf, kernel or temporary mappings).
+ * This matches the official OP-TEE attestation PTA implementation.
  */
-static bool is_region_valid(struct vm_region *r) {
-    uint32_t skip_flags = VM_FLAG_EPHEMERAL | VM_FLAG_PERMANENT | VM_FLAG_LDELF;
+static bool is_region_valid(struct vm_region *r)
+{
+    uint32_t dontwant = VM_FLAG_EPHEMERAL | VM_FLAG_PERMANENT | VM_FLAG_LDELF;
+    uint32_t want = VM_FLAG_READONLY;
 
-    return !(r->flags & skip_flags || r->attr & TEE_MATTR_UW);
+    return ((r->flags & want) == want && !(r->flags & dontwant));
 }
 
 /*
@@ -20,7 +24,8 @@ static bool is_region_valid(struct vm_region *r) {
  * Identical regions can be in any order since they will yield the same hash
  * anyways.
  */
-static int cmp_regions(const void *a, const void *b) {
+static int cmp_regions(const void *a, const void *b)
+{
     const struct vm_region *r1 = *(const struct vm_region **)a;
     const struct vm_region *r2 = *(const struct vm_region **)b;
 
@@ -33,7 +38,8 @@ static int cmp_regions(const void *a, const void *b) {
     return memcmp((void *)r1->va, (void *)r2->va, r1->size);
 }
 
-static TEE_Result hash_regions(struct vm_info *vm_info, uint8_t *hash) {
+static TEE_Result hash_regions(struct vm_info *vm_info, uint8_t *hash)
+{
     TEE_Result res = TEE_SUCCESS;
     struct vm_region *r = NULL;
     struct vm_region **regions = NULL;
@@ -52,10 +58,15 @@ static TEE_Result hash_regions(struct vm_info *vm_info, uint8_t *hash) {
     /*
      * Make an array of region pointers so we can use qsort() to order it.
      */
-
     TAILQ_FOREACH(r, &vm_info->regions, link)
-    if (is_region_valid(r))
-        nregions++;
+        if (is_region_valid(r))
+            nregions++;
+
+    if (nregions == 0) {
+        /* No valid regions - return hash of empty input */
+        res = crypto_hash_final(ctx, hash, TEE_SHA256_HASH_SIZE);
+        goto out;
+    }
 
     regions = malloc(nregions * sizeof(*regions));
     if (!regions) {
@@ -64,8 +75,10 @@ static TEE_Result hash_regions(struct vm_info *vm_info, uint8_t *hash) {
     }
 
     TAILQ_FOREACH(r, &vm_info->regions, link)
-    if (is_region_valid(r))
-        regions[i++] = r;
+        if (is_region_valid(r))
+            regions[i++] = r;
+
+    enter_user_access();
 
     /*
      * Sort regions so that they are in a consistent order even when TA ASLR
@@ -79,19 +92,23 @@ static TEE_Result hash_regions(struct vm_info *vm_info, uint8_t *hash) {
         DMSG("va %p size %zu", (void *)r->va, r->size);
         res = crypto_hash_update(ctx, (uint8_t *)r->va, r->size);
         if (res)
-            goto out;
+            break;
     }
+
+    exit_user_access();
+
+    if (res)
+        goto out;
 
     res = crypto_hash_final(ctx, hash, TEE_SHA256_HASH_SIZE);
 out:
-    if (regions)
-        free(regions);
-    if (ctx)
-        crypto_hash_free_ctx(ctx);
+    free(regions);
+    crypto_hash_free_ctx(ctx);
     return res;
 }
 
-TEE_Result get_hash_ta_memory(uint8_t *out, size_t out_sz) {
+TEE_Result get_hash_ta_memory(uint8_t *out, size_t out_sz)
+{
     struct user_mode_ctx *uctx = NULL;
     TEE_Result res = TEE_SUCCESS;
     struct ts_session *s = NULL;

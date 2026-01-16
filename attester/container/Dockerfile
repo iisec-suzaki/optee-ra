@@ -47,6 +47,7 @@ RUN apt-get update \
         python3-pip \
         python3-pyelftools \
         python3-serial \
+        python3-tomli \
         python-is-python3 \
         repo \
         rsync \
@@ -69,7 +70,7 @@ RUN groupadd -o --gid ${USER_GID} ${USERNAME} \
 
 # Install OP-TEE
 ENV OPTEE_DIR /optee
-ENV OPTEE_VERSION 3.21.0
+ENV OPTEE_VERSION 4.6.0
 RUN mkdir ${OPTEE_DIR} \
     && chown ${USERNAME}:${USERNAME} ${OPTEE_DIR}
 USER ${USERNAME}:${USERNAME}
@@ -80,6 +81,11 @@ RUN cd ${OPTEE_DIR} \
     && cd ${OPTEE_DIR}/build \
     && make toolchains -j$(nproc) \
     && make check -j$(nproc)
+
+RUN cd ${OPTEE_DIR}/optee_os/core/pta \
+    && if ! grep -q "^subdirs-y += remote_attestation" sub.mk; then \
+        printf "\\nsubdirs-y += remote_attestation\\n" >> sub.mk; \
+    fi
 
 # Install rust to build rust-apiclient
 USER ${USERNAME}:${USERNAME}
@@ -109,7 +115,7 @@ RUN mkdir ${RUST_APICLIENT_DIR} \
 USER ${USERNAME}:${USERNAME}
 WORKDIR ${RUST_APICLIENT_DIR}
 RUN git clone https://github.com/veraison/rust-apiclient . \
-    && git checkout e34784d \
+    && git checkout 8e1268e5011563c7955027033cf081c1228d268f \
     && rustup target add aarch64-unknown-linux-gnu \
     && OPENSSL_DIR=/opt/openssl-3.1.1/ cargo build --target aarch64-unknown-linux-gnu --release
 
