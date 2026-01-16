@@ -22,6 +22,8 @@ OP-TEEはRaspberry Pi 3B+ (Arm Cortex-A TrustZone)でも動作が確認できて
 
 以下の 0 から 6 の手順に従い、リモートアテステーションの一連の流れをテストしてください。
 
+i.MX 8M Plus 向け Yocto ビルドは `attester/container-imx/README.md` を参照してください。i.MX 8M Plus は SD 先頭の `imx-boot` に埋め込まれた `tee.bin` を使用するため、ビルドスクリプトは `imx-boot` の再ビルドと WIC 再パッケージを行います。
+
 ### 0. このgithubのクローン
 最初にgit cloneによりoptee-raのソースを取り寄せます。
 ```sh
