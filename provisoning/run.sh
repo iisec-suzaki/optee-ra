@@ -32,7 +32,7 @@ build_endorsements() {
 submit_endorsements() {
     $VERAISON -- cocli corim submit \
         --corim-file "${THIS_DIR}/data/psa-endorsements.cbor" \
-        --api-server "https://provisioning-service:8888/endorsement-provisioning/v1/submit" \
+        --api-server "https://provisioning-service:${PROVISIONING_PORT}/endorsement-provisioning/v1/submit" \
         --media-type 'application/corim-unsigned+cbor; profile="http://arm.com/psa/iot/1"' \
         --insecure
 }
