@@ -27,18 +27,25 @@
 #define SIGNER_ID_LEN   32
 #define INSTANCE_ID_LEN 33
 
+#define PUBKEY_COORD_SIZE  32
+#define PUBKEY_HEADER_SIZE (PUBKEY_COORD_SIZE + PUBKEY_COORD_SIZE)
+#define MIN_KEY_PARAM_SIZE (PUBKEY_HEADER_SIZE + 1)
+
 /* clang-format off */
+/*
+ * FIXME: signer_id identifies the firmware signing authority, not the
+ * attestation key.  Per PSA Attestation Token §4.4.1 it is
+ * SHA-256(signing-public-key).  Replace with the real value when
+ * integrating secure-boot verification.
+ *
+ * Reference:
+ *   https://datatracker.ietf.org/doc/draft-tschofenig-rats-psa-token/
+ */
 #define SIGNER_ID                                      \
     0xac, 0xbb, 0x11, 0xc7, 0xe4, 0xda, 0x21, 0x72,    \
     0x05, 0x52, 0x3c, 0xe4, 0xce, 0x1a, 0x24, 0x5a,    \
     0xe1, 0xa2, 0x39, 0xae, 0x3c, 0x6b, 0xfd, 0x9e,    \
     0x78, 0x71, 0xf7, 0xe5, 0xd8, 0xba, 0xe8, 0x6b
-#define INSTANCE_ID                                    \
-    0x01, 0xce, 0xeb, 0xae, 0x7b, 0x89, 0x27, 0xa3,    \
-    0x22, 0x7e, 0x53, 0x03, 0xcf, 0x5e, 0x0f, 0x1f,    \
-    0x7b, 0x34, 0xbb, 0x54, 0x2a, 0xd7, 0x25, 0x0a,    \
-    0xc0, 0x3f, 0xbc, 0xde, 0x36, 0xec, 0x2f, 0x15,    \
-    0x08
 /* clang-format on */
 
 #ifdef CFG_NXP_CAAM
@@ -76,7 +83,9 @@ static TEE_Result cmd_get_cbor_evidence(uint32_t param_types,
     const int psa_security_lifecycle = LIFECYCLE;
     const char measurement_type[] = MEASURMENT_TYPE;
     const uint8_t signer_id[SIGNER_ID_LEN] = {SIGNER_ID};
-    const uint8_t psa_instance_id[INSTANCE_ID_LEN] = {INSTANCE_ID};
+    uint8_t psa_instance_id[INSTANCE_ID_LEN] = {0};
+    uint8_t pub_x[PUBKEY_COORD_SIZE] = {0};
+    uint8_t pub_y[PUBKEY_COORD_SIZE] = {0};
 
     uint8_t measurement_value[TEE_SHA256_HASH_SIZE] = {0};
     size_t b64_measurement_value_len = TEE_SHA256_HASH_SIZE * 2;
@@ -108,11 +117,38 @@ static TEE_Result cmd_get_cbor_evidence(uint32_t param_types,
     if (!output_buffer || !(*output_buffer_len))
         return TEE_ERROR_BAD_PARAMETERS;
 
-    /* Optional black key in params[3] */
+    /*
+     * param[3] wire format (optional):
+     *   PubX(32 bytes) || PubY(32 bytes) || key_blob(N bytes)
+     *
+     * When provided, the public key coordinates are used to compute the
+     * PSA instance-id dynamically:
+     *   instance_id = 0x01 || SHA-256(0x04 || PubX || PubY)
+     *
+     * When absent, the embedded test key's public coordinates are used.
+     */
     if (TEE_PARAM_TYPE_GET(param_types, 3) == TEE_PARAM_TYPE_MEMREF_INPUT) {
-        serialized_black_key = params[3].memref.buffer;
-        serialized_black_key_len = params[3].memref.size;
+        const uint8_t *p3 = params[3].memref.buffer;
+        size_t p3_len = params[3].memref.size;
+
+        if (p3_len < MIN_KEY_PARAM_SIZE)
+            return TEE_ERROR_BAD_PARAMETERS;
+
+        memcpy(pub_x, p3, PUBKEY_COORD_SIZE);
+        memcpy(pub_y, p3 + PUBKEY_COORD_SIZE, PUBKEY_COORD_SIZE);
+        serialized_black_key = p3 + PUBKEY_HEADER_SIZE;
+        serialized_black_key_len = p3_len - PUBKEY_HEADER_SIZE;
+    } else {
+        /* No external key: use embedded test key coordinates */
+        status = get_test_key_pubkey(pub_x, pub_y);
+        if (status != TEE_SUCCESS)
+            return status;
     }
+
+    /* Compute PSA instance-id from public key */
+    status = compute_instance_id(pub_x, pub_y, psa_instance_id);
+    if (status != TEE_SUCCESS)
+        return status;
 
     /* Calculate measurement hash of memory */
     status = get_hash_ta_memory(measurement_value, TEE_SHA256_HASH_SIZE);

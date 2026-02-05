@@ -194,3 +194,54 @@ static void free_pubkey(struct ecc_public_key *pk) {
     memset(pk, 0, sizeof(*pk));
     free(pk);
 }
+
+/*
+ * Compute PSA instance-id per:
+ *   PSA Attestation Token: draft-tschofenig-rats-psa-token, Section 4.2.1
+ *   EAT UEID:              RFC 9711, Section 4.2.1
+ *
+ * instance_id = 0x01 || SHA-256(0x04 || PubX || PubY)
+ *   0x01: EAT UEID type for ECDSA
+ *   0x04: SEC 1 uncompressed point prefix
+ */
+TEE_Result compute_instance_id(const uint8_t *pub_x, const uint8_t *pub_y,
+                               uint8_t *instance_id) {
+    TEE_Result res = TEE_SUCCESS;
+    void *ctx = NULL;
+    const uint8_t uncompressed_point_tag = 0x04;
+
+    res = crypto_hash_alloc_ctx(&ctx, TEE_ALG_SHA256);
+    if (res != TEE_SUCCESS)
+        return res;
+    res = crypto_hash_init(ctx);
+    if (res != TEE_SUCCESS)
+        goto out;
+    res = crypto_hash_update(ctx, &uncompressed_point_tag, 1);
+    if (res != TEE_SUCCESS)
+        goto out;
+    res = crypto_hash_update(ctx, pub_x, KEY_SIZE);
+    if (res != TEE_SUCCESS)
+        goto out;
+    res = crypto_hash_update(ctx, pub_y, KEY_SIZE);
+    if (res != TEE_SUCCESS)
+        goto out;
+    res = crypto_hash_final(ctx, instance_id + 1, TEE_SHA256_HASH_SIZE);
+    if (res != TEE_SUCCESS)
+        goto out;
+
+    /* ECDSA instance-id type byte per PSA spec */
+    instance_id[0] = 0x01;
+
+out:
+    crypto_hash_free_ctx(ctx);
+    return res;
+}
+
+TEE_Result get_test_key_pubkey(uint8_t *pub_x, uint8_t *pub_y) {
+    const uint8_t test_pub_x[] = {PUBLIC_KEY_X};
+    const uint8_t test_pub_y[] = {PUBLIC_KEY_Y};
+
+    memcpy(pub_x, test_pub_x, KEY_SIZE);
+    memcpy(pub_y, test_pub_y, KEY_SIZE);
+    return TEE_SUCCESS;
+}

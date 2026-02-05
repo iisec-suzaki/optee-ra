@@ -21,6 +21,17 @@
 #define IMPLEMENTATION_ID     "acme-implementation-id-000000001"
 #define IMPLEMENTATION_ID_LEN 32
 
+/*
+ * Wire format for param[3] (optional key material):
+ *   PubX(32 bytes) || PubY(32 bytes) || key_blob(N bytes)
+ *
+ * When param[3] is provided, its size must be >= MIN_KEY_PARAM_SIZE.
+ * When param[3] is NONE, the PTA uses the embedded test key.
+ */
+#define PUBKEY_COORD_SIZE    32
+#define PUBKEY_HEADER_SIZE   (PUBKEY_COORD_SIZE + PUBKEY_COORD_SIZE)
+#define MIN_KEY_PARAM_SIZE   (PUBKEY_HEADER_SIZE + 1)
+
 #if defined(HOST_BUILD)
 typedef TEEC_UUID UUID_TYPE;
 #else
