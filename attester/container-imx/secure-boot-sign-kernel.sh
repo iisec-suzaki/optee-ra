@@ -1,0 +1,234 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+
+usage() {
+  cat <<'USAGE'
+Usage: ./secure-boot-sign-kernel.sh [options]
+
+Options:
+  --yocto-dir PATH   Yocto directory (default: ./yocto)
+  --cst-tar PATH     CST tarball path (e.g., cst-3.1.0.tgz)
+  --cst-dir PATH     CST directory (already extracted)
+  --out-dir PATH     Output directory (default: ./secure-boot-out)
+  --pass PASS        CST key passphrase (default: test)
+  -h, --help         Show this help
+
+Notes:
+  - This signs the kernel Image only.
+  - Output: img/Image-signed
+USAGE
+}
+
+YOCTO_DIR="${YOCTO_DIR:-${SCRIPT_DIR}/yocto}"
+CST_TARBALL=""
+CST_DIR=""
+OUT_DIR="${SCRIPT_DIR}/secure-boot-out"
+CST_PASS="test"
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --yocto-dir)
+      YOCTO_DIR="$2"; shift 2;;
+    --cst-tar)
+      CST_TARBALL="$2"; shift 2;;
+    --cst-dir)
+      CST_DIR="$2"; shift 2;;
+    --out-dir)
+      OUT_DIR="$2"; shift 2;;
+    --pass)
+      CST_PASS="$2"; shift 2;;
+    -h|--help)
+      usage; exit 0;;
+    *)
+      echo "Unknown option: $1" >&2
+      usage; exit 1;;
+  esac
+  done
+
+if [ -z "$CST_TARBALL" ] && [ -z "$CST_DIR" ]; then
+  echo "Error: --cst-tar or --cst-dir is required." >&2
+  exit 1
+fi
+
+KERNEL_IMAGE="$YOCTO_DIR/build/tmp/deploy/images/imx8mpevk/Image"
+if [ ! -f "$KERNEL_IMAGE" ]; then
+  echo "Error: kernel Image not found at $KERNEL_IMAGE" >&2
+  exit 1
+fi
+
+mkdir -p "$OUT_DIR"
+
+# Build Docker image if needed
+if ! docker image inspect veraison-yocto-builder >/dev/null 2>&1; then
+  echo "Yocto Docker image not found; building it first..."
+  docker build -f "$SCRIPT_DIR/Dockerfile.yocto" -t veraison-yocto-builder "$SCRIPT_DIR"
+fi
+
+CST_MOUNT_ARGS=""
+if [ -n "$CST_TARBALL" ]; then
+  CST_TARBALL_ABS="$(readlink -f "$CST_TARBALL")"
+  CST_MOUNT_ARGS="-v $CST_TARBALL_ABS:/opt/cst.tar.gz:ro"
+fi
+if [ -n "$CST_DIR" ]; then
+  CST_DIR_ABS="$(readlink -f "$CST_DIR")"
+  CST_MOUNT_ARGS="$CST_MOUNT_ARGS -v $CST_DIR_ABS:/opt/cst:ro"
+fi
+
+OUT_DIR_ABS="$(readlink -f "$OUT_DIR")"
+YOCTO_DIR_ABS="$(readlink -f "$YOCTO_DIR")"
+
+set -x
+
+docker run --rm \
+  --user 0:0 \
+  -v "$YOCTO_DIR_ABS:/yocto" \
+  -v "$OUT_DIR_ABS:/out" \
+  $CST_MOUNT_ARGS \
+  -e CST_PASS="$CST_PASS" \
+  -w /out \
+  veraison-yocto-builder \
+  /bin/bash -c '
+set -euo pipefail
+
+if [ -x /opt/cst/linux64/bin/cst ]; then
+  CST_ROOT=/opt/cst
+elif [ -f /opt/cst.tar.gz ]; then
+  if [ -x /out/cst/linux64/bin/cst ]; then
+    CST_ROOT=/out/cst
+  else
+    mkdir -p /out/cst
+    tar -xf /opt/cst.tar.gz -C /out/cst --strip-components=1
+    CST_ROOT=/out/cst
+  fi
+else
+  CST_ROOT=""
+fi
+
+if [ -z "$CST_ROOT" ] || [ ! -x "$CST_ROOT/linux64/bin/cst" ]; then
+  echo "CST not found. Provide --cst-tar or --cst-dir with linux64/bin/cst" >&2
+  exit 1
+fi
+
+CST_BIN="$CST_ROOT/linux64/bin/cst"
+CSF_DIR=/out/csf
+IMG_DIR=/out/img
+mkdir -p "$CSF_DIR" "$IMG_DIR"
+
+KEY_DIR="$CST_ROOT/keys"
+CRT_DIR="$CST_ROOT/crts"
+mkdir -p "$KEY_DIR" "$CRT_DIR"
+
+KERNEL_IMAGE=/yocto/build/tmp/deploy/images/imx8mpevk/Image
+cp "$KERNEL_IMAGE" "$IMG_DIR/Image"
+raw_size=$(stat -c %s "$IMG_DIR/Image")
+image_size=$(python3 - <<PY
+import struct
+with open("$IMG_DIR/Image","rb") as f:
+    hdr=f.read(64)
+    if len(hdr) < 64:
+        print(0)
+    else:
+        fields=struct.unpack("<IIQQQQQQII", hdr)
+        print(fields[3])
+PY
+)
+if [ "$image_size" -le 0 ]; then
+  image_size="$raw_size"
+elif [ "$image_size" -lt "$raw_size" ]; then
+  image_size="$raw_size"
+fi
+
+ivt_offset=$(((image_size + 0xFFF) & ~0xFFF))
+load_addr=0x40400000
+
+cp "$IMG_DIR/Image" "$IMG_DIR/Image.pad"
+truncate -s "$((ivt_offset + 0x20))" "$IMG_DIR/Image.pad"
+
+python3 - "$IMG_DIR/Image.pad" "$ivt_offset" "$load_addr" "$image_size" <<PY
+import struct
+import sys
+
+out_path = sys.argv[1]
+ivt_offset = int(sys.argv[2], 0)
+load_addr = int(sys.argv[3], 0)
+image_size = int(sys.argv[4], 0)
+boot_data_off = ivt_offset - 0x20
+boot_data_addr = load_addr + boot_data_off
+
+hdr = struct.pack(">BHB", 0xD1, 0x20, 0x41)
+ivt = hdr + struct.pack(
+    "<7I",
+    load_addr,  # entry
+    0,          # reserved1
+    0,          # dcd
+    boot_data_addr,  # boot_data
+    load_addr + ivt_offset,         # self
+    load_addr + ivt_offset + 0x20,  # csf
+    0,          # reserved2
+)
+
+with open(out_path, "r+b") as f:
+    f.seek(boot_data_off)
+    f.write(struct.pack("<3I", load_addr, image_size, 0))
+    f.seek(ivt_offset)
+    f.write(ivt)
+PY
+
+kernel_block_size=$(printf "0x%x" "$((ivt_offset + 0x20))")
+
+cat > "$CSF_DIR/csf_kernel.txt" <<CSF_EOF
+[Header]
+Version = 4.3
+Hash Algorithm = sha256
+Engine = CAAM
+Engine Configuration = 0
+Certificate Format = X509
+Signature Format = CMS
+
+[Install SRK]
+File = "$KEY_DIR/SRK_1_2_3_4_table.bin"
+Source index = 0
+
+[Install CSFK]
+File = "$CRT_DIR/CSF1_1_sha256_2048_65537_v3_usr_crt.pem"
+
+[Authenticate CSF]
+
+[Install Key]
+File = "$CRT_DIR/IMG1_1_sha256_2048_65537_v3_usr_crt.pem"
+Verification index = 0
+Target Index = 2
+
+[Authenticate Data]
+Verification index = 2
+Engine = CAAM
+Engine Configuration = 0
+Blocks = $load_addr 0x0 $kernel_block_size "$IMG_DIR/Image.pad"
+CSF_EOF
+
+"$CST_BIN" -i "$CSF_DIR/csf_kernel.txt" -o "$CSF_DIR/csf_kernel.bin"
+
+# Append CSF (pad to 8KB)
+csf_pad="$CSF_DIR/csf_kernel.pad"
+dd if=/dev/zero of="$csf_pad" bs=1 count=$((0x2000)) status=none
+
+dd if="$CSF_DIR/csf_kernel.bin" of="$csf_pad" conv=notrunc status=none
+
+cp "$IMG_DIR/Image.pad" "$IMG_DIR/Image-signed"
+
+dd if="$csf_pad" of="$IMG_DIR/Image-signed" bs=1 seek=$((ivt_offset + 0x20)) conv=notrunc status=none
+
+echo "Signed kernel: /out/img/Image-signed"
+'
+
+set +x
+
+SIGNED_KERNEL="$OUT_DIR/img/Image-signed"
+if [ ! -f "$SIGNED_KERNEL" ]; then
+  echo "Error: signed kernel not generated" >&2
+  exit 1
+fi
+
+echo "Signed kernel generated at: $SIGNED_KERNEL"
