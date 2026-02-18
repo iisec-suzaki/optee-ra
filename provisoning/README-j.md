@@ -12,13 +12,15 @@ Provisioning は Verifier に対して、アテステーションで使うTrust 
 以下のコマンドで、CBOR フォーマットの endorsment を生成します。
 ```sh
 cocli comid create --template data/comid-psa-ta.json \
-                   --template data/comid-psa-refval.json \
+                   --template data/comid-psa-refval-qemu.json \
                    --output-dir data
 cocli corim create --template data/corim-psa.json \
                    --comid data/comid-psa-refval.cbor \
                    --comid data/comid-psa-ta.cbor \
                    --output data/psa-endorsements.cbor
 ```
+
+実機の場合は `data/comid-psa-refval-imx.json` を指定します。
 
 以下のコマンドで、検証サーバーに対して、trust anchor と reference value を登録します。
 ```sh

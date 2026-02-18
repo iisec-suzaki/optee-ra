@@ -31,6 +31,7 @@ docker run --rm -d \
            --network veraison-net \
            -p 8087:8087 \
            --name relying-party-service \
+           -e VERIFICATION_SERVICE_URL \
            -v "${SCRIPT_DIR}/../app:/app" \
            ${IMAGE_NAME}:${TAG}
 

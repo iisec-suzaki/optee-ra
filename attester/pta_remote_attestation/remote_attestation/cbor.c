@@ -77,7 +77,9 @@ UsefulBufC create_tbs(UsefulBufC protected_parameters, UsefulBufC aad,
                       UsefulBufC payload, UsefulBuf buffer_for_tbs);
 
 UsefulBufC generate_cose(UsefulBufC ubc_cbor_evidence,
-                         UsefulBuf buffer_for_cose) {
+                         UsefulBuf buffer_for_cose,
+                         const uint8_t *serialized_black_key,
+                         size_t serialized_black_key_len) {
     QCBOREncodeContext cose_context;
 
     /* Add top level array for COSE_Sign1 */
@@ -117,7 +119,8 @@ UsefulBufC generate_cose(UsefulBufC ubc_cbor_evidence,
     uint8_t signature[64];
     size_t signature_len = 64;
     if (sign_ecdsa_sha256(tbs_payload.ptr, tbs_payload.len, signature,
-                          &signature_len) != TEE_SUCCESS) {
+                          &signature_len, serialized_black_key,
+                          serialized_black_key_len) != TEE_SUCCESS) {
         DMSG("Failed to sign payload");
         return NULLUsefulBufC;
     }

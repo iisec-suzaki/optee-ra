@@ -11,6 +11,11 @@ Run the following command to start the container for the Relying Party.
 ./container/start.sh
 ```
 
+If your verification service is not available at `https://verification-service:8080`, set `VERIFICATION_SERVICE_URL` before starting (default: `https://verification-service:8080`).
+```sh
+VERIFICATION_SERVICE_URL=https://verification-service:8443 ./container/start.sh
+```
+
 Run the following command to check the logs of the container.
 ```sh
 docker logs relying-party-service
@@ -42,6 +47,11 @@ Relying Party は、TA(Trusted Application)を信頼してデータやサービ�
 以下のコマンドを実行すると、Relying Party 用のコンテナが起動します。
 ```sh
 ./container/start.sh
+```
+
+Verifier が `https://verification-service:8080` 以外で動作している場合は、起動前に `VERIFICATION_SERVICE_URL` を設定してください（デフォルト: `https://verification-service:8080`）。
+```sh
+VERIFICATION_SERVICE_URL=https://verification-service:8443 ./container/start.sh
 ```
 
 以下のコマンドを実行すると、そのコンテナのログが確認できます。　

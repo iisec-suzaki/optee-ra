@@ -11,13 +11,15 @@ Use the following command to generate an endorsement in CBOR format.
 
 ```sh
 cocli comid create --template data/comid-psa-ta.json \
-                   --template data/comid-psa-refval.json \
+                   --template data/comid-psa-refval-qemu.json \
                    --output-dir data
 cocli corim create --template data/corim-psa.json \
                    --comid data/comid-psa-refval.cbor \
                    --comid data/comid-psa-ta.cbor \
                    --output data/psa-endorsements.cbor
 ```
+
+For i.MX 8M Plus, replace `data/comid-psa-refval-qemu.json` with `data/comid-psa-refval-imx.json`.
 
 Use the following command to register the Trust Anchor and Reference Value with the verification server.
 ```sh
@@ -65,13 +67,26 @@ ENDORSEMENTS:
 }
 ```
 
+If you update reference values or see `ear.status` as `warning` with `executables not recognized`, clear the stores and re-run provisioning in a shell where `env.bash` is sourced.
+
+```sh
+veraison clear-stores
+./run.sh qemu
+```
+
+Use `imx` instead of `qemu` for i.MX 8M Plus.
+
 ## Easier Execution Method
 
 You can automatically execute the above steps by running the following command.
 ```sh
-./run.sh
-
+# QEMU (default)
+./run.sh qemu
+# i.MX 8M Plus
+./run.sh imx
 ```
+
+If you omit the argument, `qemu` is used.
 
 
 <!--
@@ -91,13 +106,15 @@ Provisioning は Verifier に対して、アテステーションで使うTrust 
 以下のコマンドで、CBOR フォーマットの endorsment を生成します。
 ```sh
 cocli comid create --template data/comid-psa-ta.json \
-                   --template data/comid-psa-refval.json \
+                   --template data/comid-psa-refval-qemu.json \
                    --output-dir data
 cocli corim create --template data/corim-psa.json \
                    --comid data/comid-psa-refval.cbor \
                    --comid data/comid-psa-ta.cbor \
                    --output data/psa-endorsements.cbor
 ```
+
+実機の場合は `data/comid-psa-refval-imx.json` を指定します。
 
 以下のコマンドで、検証サーバーに対して、trust anchor と reference value を登録します。
 ```sh
@@ -145,9 +162,23 @@ ENDORSEMENTS:
 }
 ```
 
+`ear.status` が `warning` で `executables not recognized` のようなログが出る場合は、古いエンドースメントが残っています。`env.bash` を source したシェルでストアをクリアし、provisioning をやり直してください。
+
+```sh
+veraison clear-stores
+./run.sh qemu
+```
+
+実機の場合は `imx` を指定します。
+
 ## より簡単な実行方法
 
 下のコマンドを実行することで、上の手順を自動で実行することができます。
 ```sh
-./run.sh
+# QEMU (default)
+./run.sh qemu
+# i.MX 8M Plus
+./run.sh imx
 ```
+
+引数を省略した場合は `qemu` が使われます。

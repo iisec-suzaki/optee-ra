@@ -41,6 +41,8 @@ encode_evidence_to_cbor(const char *eat_profile, const int psa_client_id,
                         size_t mv_len, UsefulBuf cbor_evidence_buffer);
 
 UsefulBufC generate_cose(UsefulBufC ubc_cbor_evidence,
-                         UsefulBuf buffer_for_cose);
+                         UsefulBuf buffer_for_cose,
+                         const uint8_t *serialized_black_key,
+                         size_t serialized_black_key_len);
 
 #endif /* PTA_REMOTE_ATTESTATION_TA_CBOR_H */

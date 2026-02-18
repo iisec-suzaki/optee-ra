@@ -1,0 +1,22 @@
+# Local build artifacts
+attester/remote_attestation/host/main.o
+attester/remote_attestation/host/rust-ffi/coserv-rs/
+attester/remote_attestation/ta/*.o
+attester/remote_attestation/ta/*.d
+attester/remote_attestation/ta/*.cmd
+attester/remote_attestation/ta/.*.d
+attester/remote_attestation/ta/.*.cmd
+attester/remote_attestation/ta/*.dmp
+attester/remote_attestation/ta/*.elf
+attester/remote_attestation/ta/*.map
+attester/remote_attestation/ta/*.stripped.elf
+attester/remote_attestation/ta/*.ta
+attester/remote_attestation/ta/dyn_list
+attester/remote_attestation/ta/ta.lds
+attester/remote_attestation/ta/include/pta_remote_attestation.h
+
+# Yocto work dir
+attester/container-imx/yocto
+
+# Local Veraison services clone
+services/

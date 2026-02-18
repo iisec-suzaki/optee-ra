@@ -6,3 +6,8 @@ srcs-$(CFG_REMOTE_ATTESTATION_PTA) += sign.c
 srcs-$(CFG_REMOTE_ATTESTATION_PTA) += qcbor/qcbor_encode.c
 srcs-$(CFG_REMOTE_ATTESTATION_PTA) += qcbor/ieee754.c
 srcs-$(CFG_REMOTE_ATTESTATION_PTA) += qcbor/UsefulBuf.c
+
+incdirs-$(CFG_NXP_CAAM_ECC_DRV) += ../../drivers/crypto/caam/include
+
+cflags-$(CFG_REMOTE_ATTESTATION_PTA) += -Wno-declaration-after-statement
+cflags-$(CFG_REMOTE_ATTESTATION_PTA) += -Wno-redundant-decls
