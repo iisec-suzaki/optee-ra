@@ -6,6 +6,7 @@ srcs-$(CFG_REMOTE_ATTESTATION_PTA) += sign.c
 srcs-$(CFG_REMOTE_ATTESTATION_PTA) += qcbor/qcbor_encode.c
 srcs-$(CFG_REMOTE_ATTESTATION_PTA) += qcbor/ieee754.c
 srcs-$(CFG_REMOTE_ATTESTATION_PTA) += qcbor/UsefulBuf.c
+srcs-$(CFG_NXP_CAAM) += ocotp.c
 
 incdirs-$(CFG_NXP_CAAM_ECC_DRV) += ../../drivers/crypto/caam/include
 

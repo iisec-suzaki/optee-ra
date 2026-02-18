@@ -13,7 +13,7 @@
  *
  * [in]     memref[0]        Nonce
  * [out]    memref[1]        Output buffer
- * [in]     memref[2]        Implementation ID
+ * [in]     memref[2]        Caller TA UUID (16 bytes)
  * [in]     memref[3]        (optional) Serialized black key for signing
  *
  * Return codes:

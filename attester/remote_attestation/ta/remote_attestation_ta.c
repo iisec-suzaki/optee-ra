@@ -26,8 +26,19 @@ TEE_Result call_pta_for_cbor_evidence(uint32_t param_types,
         goto cleanup_return;
     }
 
+    /*
+     * Host → TA param layout:
+     *   [0] nonce (INPUT)
+     *   [1] output (INOUT or OUTPUT)
+     *   [2] packed key (INPUT, optional)
+     *   [3] unused
+     */
     if (param_types != TEE_PARAM_TYPES(TEE_PARAM_TYPE_MEMREF_INPUT,
                                        TEE_PARAM_TYPE_MEMREF_INOUT,
+                                       TEE_PARAM_TYPE_NONE,
+                                       TEE_PARAM_TYPE_NONE) &&
+        param_types != TEE_PARAM_TYPES(TEE_PARAM_TYPE_MEMREF_INPUT,
+                                       TEE_PARAM_TYPE_MEMREF_OUTPUT,
                                        TEE_PARAM_TYPE_NONE,
                                        TEE_PARAM_TYPE_NONE) &&
         param_types != TEE_PARAM_TYPES(TEE_PARAM_TYPE_MEMREF_INPUT,
@@ -37,15 +48,7 @@ TEE_Result call_pta_for_cbor_evidence(uint32_t param_types,
         param_types != TEE_PARAM_TYPES(TEE_PARAM_TYPE_MEMREF_INPUT,
                                        TEE_PARAM_TYPE_MEMREF_OUTPUT,
                                        TEE_PARAM_TYPE_MEMREF_INPUT,
-                                       TEE_PARAM_TYPE_NONE) &&
-        param_types != TEE_PARAM_TYPES(TEE_PARAM_TYPE_MEMREF_INPUT,
-                                       TEE_PARAM_TYPE_MEMREF_INOUT,
-                                       TEE_PARAM_TYPE_MEMREF_INPUT,
-                                       TEE_PARAM_TYPE_MEMREF_INPUT) &&
-        param_types != TEE_PARAM_TYPES(TEE_PARAM_TYPE_MEMREF_INPUT,
-                                       TEE_PARAM_TYPE_MEMREF_OUTPUT,
-                                       TEE_PARAM_TYPE_MEMREF_INPUT,
-                                       TEE_PARAM_TYPE_MEMREF_INPUT)) {
+                                       TEE_PARAM_TYPE_NONE)) {
         res = TEE_ERROR_BAD_PARAMETERS;
         goto cleanup_return;
     }
@@ -72,17 +75,15 @@ TEE_Result call_pta_for_cbor_evidence(uint32_t param_types,
         goto cleanup_return;
     }
 
-    /* Setup implementation ID */
-    const uint8_t psa_implementation_id[IMPLEMENTATION_ID_LEN];
-    memcpy((uint8_t *)psa_implementation_id, IMPLEMENTATION_ID,
-           IMPLEMENTATION_ID_LEN);
+    /* Send our TA UUID to PTA for client-id derivation */
+    TEE_UUID ta_uuid = TA_REMOTE_ATTESTATION_UUID;
 
-    /* Optional key blob from host (black key or SW private key d) */
+    /* Optional key blob from host (packed key now in params[2]) */
     void *key_blob = NULL;
     size_t key_blob_len = 0;
-    if (TEE_PARAM_TYPE_GET(param_types, 3) == TEE_PARAM_TYPE_MEMREF_INPUT) {
-        key_blob = params[3].memref.buffer;
-        key_blob_len = params[3].memref.size;
+    if (TEE_PARAM_TYPE_GET(param_types, 2) == TEE_PARAM_TYPE_MEMREF_INPUT) {
+        key_blob = params[2].memref.buffer;
+        key_blob_len = params[2].memref.size;
         if (key_blob && key_blob_len > 0) {
             key_buf = TEE_Malloc(key_blob_len, 0);
             if (!key_buf) {
@@ -100,8 +101,8 @@ TEE_Result call_pta_for_cbor_evidence(uint32_t param_types,
                                 .memref.size = nonce_len},
                                {.memref.buffer = out_buf,
                                 .memref.size = out_len},
-                               {.memref.buffer = psa_implementation_id,
-                                .memref.size = IMPLEMENTATION_ID_LEN},
+                               {.memref.buffer = &ta_uuid,
+                                .memref.size = sizeof(ta_uuid)},
                                {.memref.buffer = NULL, .memref.size = 0}};
 
     if (key_blob && key_blob_len > 0) {

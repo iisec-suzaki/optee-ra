@@ -87,12 +87,22 @@ UsefulBufC generate_cose(UsefulBufC ubc_cbor_evidence,
     QCBOREncode_AddTag(&cose_context, CBOR_TAG_COSE_SIGN1);
     QCBOREncode_OpenArray(&cose_context);
 
+    /* Allocate work buffers on heap to avoid PTA stack overflow */
+    void *heap_prot = malloc(256);
+    void *heap_tbs = malloc(512);
+    if (!heap_prot || !heap_tbs) {
+        free(heap_prot);
+        free(heap_tbs);
+        return NULLUsefulBufC;
+    }
+
     /* Encode protected header */
-    UsefulBuf_MAKE_STACK_UB(buffer_for_protected_parameter, 256);
-    UsefulBufC protected_parameter =
-        encode_protected_parameter(buffer_for_protected_parameter);
+    UsefulBuf buf_prot = {heap_prot, 256};
+    UsefulBufC protected_parameter = encode_protected_parameter(buf_prot);
     if (UsefulBuf_IsNULLC(protected_parameter)) {
         DMSG("Failed to encode protected header payload");
+        free(heap_prot);
+        free(heap_tbs);
         return NULLUsefulBufC;
     }
 
@@ -107,11 +117,13 @@ UsefulBufC generate_cose(UsefulBufC ubc_cbor_evidence,
     QCBOREncode_AddBytes(&cose_context, ubc_cbor_evidence);
 
     /* Encode "To Be Signed" payload */
-    UsefulBuf_MAKE_STACK_UB(buffer_for_tbs, 1024);
+    UsefulBuf buf_tbs = {heap_tbs, 512};
     UsefulBufC tbs_payload = create_tbs(protected_parameter, NULLUsefulBufC,
-                                        ubc_cbor_evidence, buffer_for_tbs);
+                                        ubc_cbor_evidence, buf_tbs);
     if (UsefulBuf_IsNULLC(tbs_payload)) {
         DMSG("Failed to encode to-be-signed payload");
+        free(heap_prot);
+        free(heap_tbs);
         return NULLUsefulBufC;
     }
 
@@ -122,8 +134,13 @@ UsefulBufC generate_cose(UsefulBufC ubc_cbor_evidence,
                           &signature_len, serialized_black_key,
                           serialized_black_key_len) != TEE_SUCCESS) {
         DMSG("Failed to sign payload");
+        free(heap_prot);
+        free(heap_tbs);
         return NULLUsefulBufC;
     }
+
+    free(heap_prot);
+    free(heap_tbs);
 
     /* Add the signature */
     UsefulBufC signature_payload = {signature, signature_len};

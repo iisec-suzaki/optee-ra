@@ -34,6 +34,8 @@ do_configure:append() {
     cp ${PTA_SRC}/sign.h ${S}/core/pta/remote_attestation/
     cp ${PTA_SRC}/base64.c ${S}/core/pta/remote_attestation/
     cp ${PTA_SRC}/base64.h ${S}/core/pta/remote_attestation/
+    cp ${PTA_SRC}/ocotp.c ${S}/core/pta/remote_attestation/
+    cp ${PTA_SRC}/ocotp.h ${S}/core/pta/remote_attestation/
     cp ${PTA_SRC}/sub.mk ${S}/core/pta/remote_attestation/
 
     # Copy qcbor files
