@@ -10,7 +10,7 @@ RUN apt-get update && apt-get install -y \
     python3-git python3-jinja2 libegl1-mesa libsdl1.2-dev pylint xterm \
     python3-subunit mesa-common-dev zstd liblz4-tool locales vim curl \
     ca-certificates gnupg file cpio bc bison flex rsync libssl-dev libncurses-dev \
-    efitools \
+    efitools u-boot-tools \
     && rm -rf /var/lib/apt/lists/*
 
 # Check Python version (should be 3.10+ in Ubuntu 22.04)
