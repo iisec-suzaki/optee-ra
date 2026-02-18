@@ -177,25 +177,91 @@ the CAAM key context (MPMR/BKEK), so old BlackKeys are no longer valid.
 
 ## 10) BlackKey non-reuse test (two devices)
 
-Use the same SRK for both devices.
+This test proves that CAAM BlackKeys are device-bound. Even when two devices
+share the same SRK fuse values, each device's JDKEK (derived from unique
+hardware entropy) encrypts BlackKeys differently, so a BlackKey generated on
+one device cannot be used on another.
 
-Device A:
+Both devices must be **closed** with the same SRK (Steps 8-9).
+
+### 11.1 Test A's BlackKey on Device B
+
+Generate a BlackKey on **Device A**:
 
 ```bash
 optee_remote_attestation --generate-blackkey
 # Save FullKey(hex)
 ```
 
-Device B:
+Use Device A's FullKey on **Device B**:
 
 ```bash
 optee_remote_attestation --key-hex <FullKey-from-A>
 ```
 
-Expected: **failure** (e.g. `Failed to sign payload`), proving BlackKey is device-bound.
+Expected: `Failed to sign payload` — Device B's CAAM cannot decrypt A's
+BlackKey blob, so signing fails.
+
+### 11.2 Generate a new BlackKey on Device B
+
+```bash
+optee_remote_attestation --generate-blackkey
+# Save FullKey(hex)
+optee_remote_attestation --key-hex <FullKey-from-B>
+```
+
+Expected: `ear.status: "contraindicated"` with `"no trust anchor for evidence"`.
+
+Signing succeeds because Device B's CAAM can use its own BlackKey, but the
+Verifier rejects the evidence because Device B's public key (and therefore its
+`psa-instance-id`) is not registered as a trust anchor.
+
+### 11.3 Register Device B and verify
+
+To make Device B's attestation succeed, register its trust anchor with the
+Verifier. Compute the instance-id and PEM public key from the PubX/PubY
+output of `--generate-blackkey` (see Step 10 for the helper scripts), then
+create a provisioning JSON with Device B's values and submit it:
+
+```bash
+# Build and submit Device B's trust anchor
+veraison -- cocli comid create \
+    --template provisoning/data/comid-psa-ta-deviceB.json \
+    --template provisoning/data/comid-psa-refval-imx.json \
+    --output-dir provisoning/data
+
+veraison -- cocli corim create \
+    --template provisoning/data/corim-psa.json \
+    --comid provisoning/data/comid-psa-refval-imx.cbor \
+    --comid provisoning/data/comid-psa-ta-deviceB.cbor \
+    --output provisoning/data/psa-endorsements-deviceB.cbor
+
+veraison -- cocli corim submit \
+    --corim-file provisoning/data/psa-endorsements-deviceB.cbor \
+    --api-server "https://provisioning-service:9443/endorsement-provisioning/v1/submit" \
+    --media-type 'application/corim-unsigned+cbor; profile="http://arm.com/psa/iot/1"'
+```
+
+Run attestation again on **Device B**:
+
+```bash
+optee_remote_attestation --key-hex <FullKey-from-B>
+```
+
+Expected: `ear.status: "affirming"`.
+
+### Summary
+
+| Test | Result | Meaning |
+|------|--------|---------|
+| A's BlackKey on B | `Failed to sign` | BlackKey is device-bound (JDKEK differs) |
+| B's new BlackKey (unregistered) | `no trust anchor` | Key pair differs, instance-id unknown to Verifier |
+| B's BlackKey after registration | `affirming` | Trust anchor added, attestation succeeds |
 
 ## Notes
 
 - Close is irreversible. Do not proceed without key backups.
 - The signed imx-boot is injected at 32KB in the WIC by the script.
 - Use the same SRK values on both devices for the non-reuse test.
+- Each device generates a unique CAAM key pair; the Verifier must register
+  each device's trust anchor individually.
