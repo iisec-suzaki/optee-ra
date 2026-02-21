@@ -5,13 +5,14 @@
 #include "cbor.h"
 #include "hash.h"
 #include "sign.h"
+#include <crypto/crypto.h>
 #include <stdlib.h>
 #include <string.h>
 
 #ifdef CFG_NXP_CAAM
-#include <crypto/crypto.h>
 #include <caam_key.h>
 #include <caam_status.h>
+#include "ocotp.h"
 #endif
 
 #define PTA_NAME "remote_attestation.pta"
@@ -21,9 +22,13 @@
 #define TEE_SHA256_HASH_SIZE 32
 
 #define EAT_PROFILE     "http://arm.com/psa/2.0.0"
-#define CLIENT_ID       1
-#define LIFECYCLE       12288
-#define MEASURMENT_TYPE "PRoT"
+#define MEASURMENT_TYPE "ARoT"
+#ifdef CFG_NXP_CAAM
+#define IMPLEMENTATION_ID     "imx8mp-optee-ra-0000000000000001"
+#else
+#define IMPLEMENTATION_ID     "qemu-optee-ra-000000000000000001"
+#endif
+#define IMPLEMENTATION_ID_LEN 32
 #define SIGNER_ID_LEN   32
 #define INSTANCE_ID_LEN 33
 
@@ -31,22 +36,17 @@
 #define PUBKEY_HEADER_SIZE (PUBKEY_COORD_SIZE + PUBKEY_COORD_SIZE)
 #define MIN_KEY_PARAM_SIZE (PUBKEY_HEADER_SIZE + 1)
 
+#ifndef CFG_NXP_CAAM
 /* clang-format off */
-/*
- * FIXME: signer_id identifies the firmware signing authority, not the
- * attestation key.  Per PSA Attestation Token §4.4.1 it is
- * SHA-256(signing-public-key).  Replace with the real value when
- * integrating secure-boot verification.
- *
- * Reference:
- *   https://datatracker.ietf.org/doc/draft-tschofenig-rats-psa-token/
- */
-#define SIGNER_ID                                      \
+/* QEMU fallback: test signer-id value (no OCOTP fuses available) */
+#define SIGNER_ID_TEST_VALUE                            \
     0xac, 0xbb, 0x11, 0xc7, 0xe4, 0xda, 0x21, 0x72,    \
     0x05, 0x52, 0x3c, 0xe4, 0xce, 0x1a, 0x24, 0x5a,    \
     0xe1, 0xa2, 0x39, 0xae, 0x3c, 0x6b, 0xfd, 0x9e,    \
     0x78, 0x71, 0xf7, 0xe5, 0xd8, 0xba, 0xe8, 0x6b
 /* clang-format on */
+#define LIFECYCLE_DEFAULT 0x3000
+#endif
 
 #ifdef CFG_NXP_CAAM
 static TEE_Result caam_to_tee_status(enum caam_status status)
@@ -66,23 +66,54 @@ static TEE_Result caam_to_tee_status(enum caam_status status)
 }
 #endif
 
+/*
+ * Derive a PSA client-id (positive int32) from the calling TA's UUID.
+ * SHA-256(UUID) lower 31 bits, with bit 31 cleared to guarantee a positive
+ * value (positive = SPE caller per PSA spec).
+ */
+static int32_t derive_client_id(const uint8_t *ta_uuid, size_t uuid_len) {
+    uint8_t hash[TEE_SHA256_HASH_SIZE];
+    void *ctx = NULL;
+
+    if (!ta_uuid || uuid_len == 0)
+        return 1; /* safe fallback */
+
+    if (crypto_hash_alloc_ctx(&ctx, TEE_ALG_SHA256) != TEE_SUCCESS)
+        return 1;
+    if (crypto_hash_init(ctx) != TEE_SUCCESS ||
+        crypto_hash_update(ctx, ta_uuid, uuid_len) != TEE_SUCCESS ||
+        crypto_hash_final(ctx, hash, TEE_SHA256_HASH_SIZE) != TEE_SUCCESS) {
+        crypto_hash_free_ctx(ctx);
+        return 1;
+    }
+    crypto_hash_free_ctx(ctx);
+
+    /* Take lower 4 bytes of SHA-256 digest, clear sign bit */
+    uint32_t raw = ((uint32_t)hash[28] << 24) | ((uint32_t)hash[29] << 16) |
+                   ((uint32_t)hash[30] << 8) | hash[31];
+    return (int32_t)(raw & 0x7FFFFFFF);
+}
+
 static TEE_Result cmd_get_cbor_evidence(uint32_t param_types,
                                         TEE_Param params[TEE_NUM_PARAMS]) {
     const uint8_t *nonce = params[0].memref.buffer;
     const size_t nonce_sz = params[0].memref.size;
     uint8_t *output_buffer = params[1].memref.buffer;
     size_t *output_buffer_len = &params[1].memref.size;
-    const uint8_t *psa_implementation_id = params[2].memref.buffer;
-    const size_t psa_implementation_id_len = params[2].memref.size;
+    const uint8_t *ta_uuid = params[2].memref.buffer;
+    const size_t ta_uuid_len = params[2].memref.size;
     const uint8_t *serialized_black_key = NULL;
     size_t serialized_black_key_len = 0;
     TEE_Result status = TEE_SUCCESS;
 
     const char eat_profile[] = EAT_PROFILE;
-    const int psa_client_id = CLIENT_ID;
-    const int psa_security_lifecycle = LIFECYCLE;
     const char measurement_type[] = MEASURMENT_TYPE;
-    const uint8_t signer_id[SIGNER_ID_LEN] = {SIGNER_ID};
+    const uint8_t *psa_implementation_id =
+        (const uint8_t *)IMPLEMENTATION_ID;
+    const size_t psa_implementation_id_len = IMPLEMENTATION_ID_LEN;
+    const int psa_client_id = derive_client_id(ta_uuid, ta_uuid_len);
+    uint8_t signer_id[SIGNER_ID_LEN] = {0};
+    int psa_security_lifecycle = 0;
     uint8_t psa_instance_id[INSTANCE_ID_LEN] = {0};
     uint8_t pub_x[PUBKEY_COORD_SIZE] = {0};
     uint8_t pub_y[PUBKEY_COORD_SIZE] = {0};
@@ -116,6 +147,27 @@ static TEE_Result cmd_get_cbor_evidence(uint32_t param_types,
 
     if (!output_buffer || !(*output_buffer_len))
         return TEE_ERROR_BAD_PARAMETERS;
+
+    /* Populate signer-id and lifecycle from platform fuses or fallback */
+#ifdef CFG_NXP_CAAM
+    status = ocotp_read_srk_hash(signer_id);
+    if (status != TEE_SUCCESS)
+        return status;
+
+    {
+        uint32_t lifecycle_val = 0;
+        status = ocotp_get_lifecycle(&lifecycle_val);
+        if (status != TEE_SUCCESS)
+            return status;
+        psa_security_lifecycle = (int)lifecycle_val;
+    }
+#else
+    {
+        const uint8_t fallback_signer[SIGNER_ID_LEN] = {SIGNER_ID_TEST_VALUE};
+        memcpy(signer_id, fallback_signer, SIGNER_ID_LEN);
+        psa_security_lifecycle = LIFECYCLE_DEFAULT;
+    }
+#endif
 
     /*
      * param[3] wire format (optional):
@@ -164,8 +216,18 @@ static TEE_Result cmd_get_cbor_evidence(uint32_t param_types,
     b64_measurement_value[b64_measurement_value_len] = '\0';
     DMSG("b64_measurement_value: %s", b64_measurement_value);
 
+    /* Allocate CBOR/COSE work buffers on heap to avoid PTA stack overflow */
+    void *heap_cbor = malloc(512);
+    void *heap_cose = malloc(512);
+    if (!heap_cbor || !heap_cose) {
+        free(heap_cbor);
+        free(heap_cose);
+        return TEE_ERROR_OUT_OF_MEMORY;
+    }
+    UsefulBuf buffuer_for_cbor = {heap_cbor, 512};
+    UsefulBuf buffer_for_cose = {heap_cose, 512};
+
     /* Encode evidence to CBOR */
-    UsefulBuf_MAKE_STACK_UB(buffuer_for_cbor, 512);
     UsefulBufC ubc_cbor_evidence = encode_evidence_to_cbor(
         eat_profile, psa_client_id, psa_security_lifecycle,
         psa_implementation_id, psa_implementation_id_len, measurement_type,
@@ -173,16 +235,19 @@ static TEE_Result cmd_get_cbor_evidence(uint32_t param_types,
         nonce_sz, measurement_value, TEE_SHA256_HASH_SIZE, buffuer_for_cbor);
     if (UsefulBuf_IsNULLC(ubc_cbor_evidence)) {
         DMSG("Failed to encode evidence to CBOR");
+        free(heap_cbor);
+        free(heap_cose);
         return TEE_ERROR_GENERIC;
     }
 
     /* Sign the CBOR and generate a COSE evidence */
-    UsefulBuf_MAKE_STACK_UB(buffer_for_cose, *output_buffer_len);
     UsefulBufC cose_evidence =
         generate_cose(ubc_cbor_evidence, buffer_for_cose,
                       serialized_black_key, serialized_black_key_len);
     if (UsefulBuf_IsNULLC(cose_evidence)) {
         DMSG("Failed to encode CBOR to COSE");
+        free(heap_cbor);
+        free(heap_cose);
         return TEE_ERROR_GENERIC;
     }
 
@@ -190,6 +255,8 @@ static TEE_Result cmd_get_cbor_evidence(uint32_t param_types,
     memcpy(output_buffer, cose_evidence.ptr, cose_evidence.len);
     *output_buffer_len = cose_evidence.len;
 
+    free(heap_cbor);
+    free(heap_cose);
     return TEE_SUCCESS;
 }
 

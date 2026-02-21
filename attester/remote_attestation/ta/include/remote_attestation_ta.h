@@ -17,16 +17,12 @@
 #define TA_REMOTE_ATTESTATION_CMD_GENERATE_BLACKKEY 1
 #define TA_REMOTE_ATTESTATION_CMD_CONVERT_TO_BLACKKEY 2
 
-/* Implementation ID used in PSA evidence */
-#define IMPLEMENTATION_ID     "acme-implementation-id-000000001"
-#define IMPLEMENTATION_ID_LEN 32
-
 /*
- * Wire format for param[3] (optional key material):
+ * Wire format for param[2] (optional key material, Host→TA):
  *   PubX(32 bytes) || PubY(32 bytes) || key_blob(N bytes)
  *
- * When param[3] is provided, its size must be >= MIN_KEY_PARAM_SIZE.
- * When param[3] is NONE, the PTA uses the embedded test key.
+ * When param[2] is provided, its size must be >= MIN_KEY_PARAM_SIZE.
+ * When param[2] is NONE, the PTA uses the embedded test key.
  */
 #define PUBKEY_COORD_SIZE    32
 #define PUBKEY_HEADER_SIZE   (PUBKEY_COORD_SIZE + PUBKEY_COORD_SIZE)

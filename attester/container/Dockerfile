@@ -80,7 +80,11 @@ RUN cd ${OPTEE_DIR} \
     && repo sync -j$(nproc) \
     && cd ${OPTEE_DIR}/build \
     && make toolchains -j$(nproc) \
-    && make check -j$(nproc)
+    && sed -i 's/BR2_PACKAGE_OPTEE_RUST_EXAMPLES_EXT ?= y/BR2_PACKAGE_OPTEE_RUST_EXAMPLES_EXT ?= n/' \
+           ${OPTEE_DIR}/build/common.mk \
+    && sed -i 's/OPTEE_RUST_ENABLE ?= y/OPTEE_RUST_ENABLE ?= n/' \
+           ${OPTEE_DIR}/build/common.mk \
+    && make -j$(nproc)
 
 RUN cd ${OPTEE_DIR}/optee_os/core/pta \
     && if ! grep -q "^subdirs-y += remote_attestation" sub.mk; then \

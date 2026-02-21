@@ -22,7 +22,7 @@
           "class": {
             "id": {
               "type": "psa.impl-id",
-              "value": "YWNtZS1pbXBsZW1lbnRhdGlvbi1pZC0wMDAwMDAwMDE="
+              "value": "aW14OG1wLW9wdGVlLXJhLTAwMDAwMDAwMDAwMDAwMDE="
             },
             "vendor": "ACME",
             "model": "RoadRunner"
@@ -33,13 +33,13 @@
             "key": {
               "type": "psa.refval-id",
               "value": {
-                "label": "PRoT",
-                "signer-id": "rLsRx+TaIXIFUjzkzhokWuGiOa48a/2eeHH35di66Gs="
+                "label": "ARoT",
+                "signer-id": "427zIO3QE+zwfmqkGRPzdhocbmeEF9Bpn5Lk/mBzgf4="
               }
             },
             "value": {
               "digests": [
-                "sha-256;6obNp1pkw7W7eaWtjwjSspd2w7JXAJ3+T9N1gzwJXYQ="
+                "sha-256;v0A0kWI5jq4tGIGZf+o4ujdq/udWwLgzfrOc2XOb13A="
               ]
             }
           }

@@ -298,31 +298,25 @@ int main(int argc, char *argv[]) {
     uint8_t cbor_evidence[1024] = {0};
     TEEC_Operation op = {0};
 
-    /* Setup implementation ID (required by PTA as param[2]) */
-    static const uint8_t impl_id[IMPLEMENTATION_ID_LEN] = IMPLEMENTATION_ID;
-
     if (packed_key_param && packed_key_param_len > 0) {
-        /* Params: nonce(in), output(out), impl_id(in), packed_key(in) */
-        op.paramTypes = TEEC_PARAM_TYPES(
-            TEEC_MEMREF_TEMP_INPUT, TEEC_MEMREF_TEMP_OUTPUT,
-            TEEC_MEMREF_TEMP_INPUT, TEEC_MEMREF_TEMP_INPUT);
-    } else {
-        /* Params: nonce(in), output(out), impl_id(in), none */
+        /* Params: nonce(in), output(out), packed_key(in) */
         op.paramTypes = TEEC_PARAM_TYPES(
             TEEC_MEMREF_TEMP_INPUT, TEEC_MEMREF_TEMP_OUTPUT,
             TEEC_MEMREF_TEMP_INPUT, TEEC_NONE);
+    } else {
+        /* Params: nonce(in), output(out) */
+        op.paramTypes = TEEC_PARAM_TYPES(
+            TEEC_MEMREF_TEMP_INPUT, TEEC_MEMREF_TEMP_OUTPUT,
+            TEEC_NONE, TEEC_NONE);
     }
     op.params[0].tmpref.buffer = (uint8_t *)session->nonce;
     op.params[0].tmpref.size = session->nonce_size;
     op.params[1].tmpref.buffer = cbor_evidence;
     op.params[1].tmpref.size = sizeof(cbor_evidence);
-    /* param[2] is implementation_id */
-    op.params[2].tmpref.buffer = (void *)impl_id;
-    op.params[2].tmpref.size = IMPLEMENTATION_ID_LEN;
-    /* param[3] is packed key: PubX(32) || PubY(32) || key_blob(N) */
+    /* param[2] is packed key: PubX(32) || PubY(32) || key_blob(N) */
     if (packed_key_param && packed_key_param_len > 0) {
-        op.params[3].tmpref.buffer = packed_key_param;
-        op.params[3].tmpref.size = packed_key_param_len;
+        op.params[2].tmpref.buffer = packed_key_param;
+        op.params[2].tmpref.size = packed_key_param_len;
     }
 
     printf("\nInvoke TA.\n");

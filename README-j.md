@@ -1,6 +1,3 @@
-<!--
--------------------------------------------------------------------------------------------------------------------
--->
 # 日本語解説 OP-TEE Remote Attestation with VERAISON Verification
 
 このドキュメントではQEMUとDockerコンテナを用いた[OP-TEE](https://github.com/OP-TEE/optee_os) Remote Attestation 実行環境の構築と、[VERAISON](https://github.com/veraison) Verification を活用した一連の動作を確認手順を説明します。
@@ -21,9 +18,8 @@ OP-TEEはRaspberry Pi 3B+ (Arm Cortex-A TrustZone)でも動作が確認できて
 ## 実行方法
 
 以下の 0 から 6 の手順に従い、リモートアテステーションの一連の流れをテストしてください。
-i.MX8MP EVK 実機でのアテステーションは[手順 8](#8-imx8mp-実機でのアテステーション) を参照してください。
 
-i.MX 8M Plus 向け Yocto ビルドと実機でのアテステーションは[手順 8](#8-imx8mp-実機でのアテステーション) を参照してください。i.MX 8M Plus は SD 先頭の `imx-boot` に埋め込まれた `tee.bin` を使用するため、ビルドスクリプトは `imx-boot` の再ビルドと WIC 再パッケージを行います。
+i.MX 8M Plus 向け Yocto ビルドと実機でのアテステーションは[手順 8](#8-imx8mp-実機でのアテステーション) を参照してください。QEMU 向けの Attester 手順のみ確認したい場合は `attester/README.md` を参照してください。
 
 ### 0. このgithubのクローン
 最初にgit cloneによりoptee-raのソースを取り寄せます。
@@ -37,11 +33,11 @@ cd optee-ra
 Veraisonのソースをgithubから取り寄せます。
 ```sh
 git clone https://github.com/veraison/services.git
-cd services && git checkout b50b67d && cd ..
+cd services && git checkout 8f5734c && cd ..
 ```
 この際に下記のメッセージがでますが、問題ありません。
 ```
-Note: switching to 'b50b67d'.
+Note: switching to '8f5734c'.
 
 You are in 'detached HEAD' state. You can look around, make experimental
 changes and commit them, and you can discard any commits you make in this
@@ -58,7 +54,7 @@ Or undo this operation with:
 
 Turn off this advice by setting config variable advice.detachedHead to false
 
-HEAD is now at b50b67d Merge pull request #208 from aj-stein-nist/patch-1
+HEAD is now at 8f5734c Yogesh's review comments
 ```
 
 次にホストマシン上で動作させるサービスを起動します。
@@ -111,8 +107,8 @@ TRUST ANCHORS:
     "PSA_IOT.hw-model": "RoadRunner",
     "PSA_IOT.hw-vendor": "ACME",
     "PSA_IOT.iak-pub": "-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEMKBCTNIcKUSDii11ySs3526iDZ8A\niTo7Tu6KPAqv7D7gS2XpJFbZiItSs3m9+9Ue6GnvHw/GW2ZZaVtszggXIw==\n-----END PUBLIC KEY-----",
-    "PSA_IOT.impl-id": "YWNtZS1pbXBsZW1lbnRhdGlvbi1pZC0wMDAwMDAwMDE=",
-    "PSA_IOT.inst-id": "Ac7rrnuJJ6MiflMDz14PH3s0u1Qq1yUKwD+83jbsLxUI"
+    "PSA_IOT.impl-id": "cWVtdS1vcHRlZS1yYS0wMDAwMDAwMDAwMDAwMDAwMDE=",
+    "PSA_IOT.inst-id": "AZDHHoAwT5jWVWpALAWTszqArL0I5K/5xAKfbhfhA5lR"
   }
 }
 
@@ -125,9 +121,9 @@ ENDORSEMENTS:
   "attributes": {
     "PSA_IOT.hw-model": "RoadRunner",
     "PSA_IOT.hw-vendor": "ACME",
-    "PSA_IOT.impl-id": "YWNtZS1pbXBsZW1lbnRhdGlvbi1pZC0wMDAwMDAwMDE=",
+    "PSA_IOT.impl-id": "cWVtdS1vcHRlZS1yYS0wMDAwMDAwMDAwMDAwMDAwMDE=",
     "PSA_IOT.measurement-desc": "sha-256",
-    "PSA_IOT.measurement-type": "PRoT",
+    "PSA_IOT.measurement-type": "ARoT",
     "PSA_IOT.measurement-value": "MbgFqjT4jfR+fK1O4YyQtZUYD0nhXh7GfhM0EmR6tgc=",
     "PSA_IOT.signer-id": "rLsRx+TaIXIFUjzkzhokWuGiOa48a/2eeHH35di66Gs="
   }
@@ -148,11 +144,6 @@ ENDORSEMENTS:
 次に、Relying Party を実行するためのコンテナを起動し、アプリケーションを実行します。Relying Party は、Attester からのリクエストを受け、Attester と Verifier の間の通信を仲介します。また、Verifier からアテステーション結果を受信すると、それをログに出力します。
 ```sh
 ./relying_party/container/start.sh
-```
-
-Verifier が `https://verification-service:8080` 以外で動作している場合は、起動前に `VERIFICATION_SERVICE_URL` を設定してください（デフォルト: `https://verification-service:8080`）。
-```sh
-VERIFICATION_SERVICE_URL=https://verification-service:8443 ./relying_party/container/start.sh
 ```
 
 以下のコマンドで Relying Party のログは確認できます。
@@ -219,19 +210,21 @@ optee_remote_attestation
 
 正しく実行できた場合、以下のような出力が noromal world のターミナルで得られます。
 ```txt
-Opened new Veraison client session at http://relying-party-service:8087/challenge-response/v1/session/ed70cc0d-d141-11ee-9588-623338313838
+Opened new Veraison client session at http://relying-party-service:8087/challenge-response/v1/session/82e2edd9-0d53-11f1-9b92-393833646162
 
-Number of media types accepted: 7
-	application/vnd.parallaxsecond.key-attestation.cca
-	application/vnd.parallaxsecond.key-attestation.tpm
-	application/pem-certificate-chain
-	application/vnd.enacttrust.tpm-evidence
-	application/eat-collection; profile=http://arm.com/CCA-SSD/1.0.0
+Number of media types accepted: 9
 	application/psa-attestation-token
-	application/eat-cwt; profile=http://arm.com/psa/2.0.0
+	application/eat+cwt; eat_profile="tag:psacertified.org,2023:psa#tfm"
+	application/vnd.parallaxsecond.key-attestation.tpm
+	application/eat-cwt; profile="http://arm.com/psa/2.0.0"
+	application/eat-collection; profile="http://arm.com/CCA-SSD/1.0.0"
+	application/vnd.parallaxsecond.key-attestation.cca
+	application/eat+cwt; eat_profile="tag:psacertified.org,2019:psa#legacy"
+	application/vnd.enacttrust.tpm-evidence
+	application/pem-certificate-chain
 
 Nonce size: 32 bytes
-Nonce: [0x60, 0x48, 0xbd, 0x24, 0x55, 0xdb, 0x8a, 0x4, 0x6e, 0xcc, 0x7, 0x20, 0x40, 0x26, 0x87, 0xd0, 0x60, 0x72, 0xd, 0x95, 0x45, 0x57, 0x92, 0xa5, 0x36, 0xf4, 0x84, 0x52, 0xd5, 0xee, 0x5d, 0xbe]
+Nonce: [0xc4, 0x69, 0xd9, 0x7, 0x4, 0x87, 0xac, 0x71, 0x90, 0x30, 0x1f, 0x6d, 0x17, 0xbb, 0x62, 0x7c, 0x95, 0x8, 0x4f, 0x49, 0x2a, 0x5, 0x83, 0x1b, 0x3d, 0xde, 0x2a, 0x8f, 0x89, 0xd5, 0x41, 0x3c]
 
 Completed opening the session.
 
@@ -242,15 +235,13 @@ Invoked TA successfully.
 
 Received evidence of CBOR (COSE) format from PTA.
 
-CBOR(COSE) size: 306
-CBOR(COSE): d28443a10126a058e7a71901097818687474703a2f2f61726d2e636f6d2f7073612f322e302e3019095a0119095b19300019095c582061636d652d696d706c656d656e746174696f6e2d69642d30303030303030303119095f81a3016450526f5402582031b805aa34f88df47e7cad4ee18c90b595180f49e15e1ec67e133412647ab607055820acbb11c7e4da217205523ce4ce1a245ae1a239ae3c6bfd9e7871f7e5d8bae86b0a58206048bd2455db8a046ecc0720402687d060720d95455792a536f48452d5ee5dbe190100582101ceebae7b8927a3227e5303cf5e0f1f7b34bb542ad7250ac03fbcde36ec2f15085840fd39ee2aac4f64be2a58c1eca501ec1a3a7528f73bcbe8a90e7e1efda7e2cfce793fd28137c8a966793b605981fa677824867b22e21efcd6908338c4e3083b08
+CBOR(COSE) size: 310
+CBOR(COSE): d28443a10126a058eba71901097818687474703a2f2f61726d2e636f6d2f7073612f322e302e3019095a1a5f7cd29d19095b19300019095c582071656d752d6f707465652d72612d30303030303030303030303030303030303119095f81a3016441526f540258204237fb23701092316805005b86b2ab60f5ffb681e19e67d97a29e0939a04ea30055820acbb11c7e4da217205523ce4ce1a245ae1a239ae3c6bfd9e7871f7e5d8bae86b0a5820c469d9070487ac7190301f6d17bb627c95084f492a05831b3dde2a8f89d5413c19010058210190c71e80304f98d6556a402c0593b33a80acbd08e4aff9c4029f6e17e1039951584032935e3ebc3c2c052b7ec31fd8f22c4be5ad43cf21960db1de916d8a967bbae0bc1fa2dd110329cb3edeef1919beb74018fe7fbae99fab1743e024ec5f698150
 
 
 Supplying the generated evidence to the server.
 
 Received the attestation result from the server.
-
-Raw attestation result (JWT): eyJhbGciOiJFUzI1NiIsInR5cCI6IkpXVCJ9.eyJlYXIudmVyaWZpZXItaWQiOnsiYnVpbGQiOiJOL0EiLCJkZXZlbG9wZXIiOiJWZXJhaXNvbiBQcm9qZWN0In0sImVhdF9ub25jZSI6IllFaTlKRlhiaWdSdXpBY2dRQ2FIMEdCeURaVkZWNUtsTnZTRVV0WHVYYjQ9IiwiZWF0X3Byb2ZpbGUiOiJ0YWc6Z2l0aHViLmNvbSwyMDIzOnZlcmFpc29uL2VhciIsImlhdCI6MTcwODU3OTE1OSwic3VibW9kcyI6eyJQU0FfSU9UIjp7ImVhci5hcHByYWlzYWwtcG9saWN5LWlkIjoicG9saWN5OlBTQV9JT1QiLCJlYXIuc3RhdHVzIjoiYWZmaXJtaW5nIiwiZWFyLnRydXN0d29ydGhpbmVzcy12ZWN0b3IiOnsiY29uZmlndXJhdGlvbiI6MCwiZXhlY3V0YWJsZXMiOjIsImZpbGUtc3lzdGVtIjowLCJoYXJkd2FyZSI6MiwiaW5zdGFuY2UtaWRlbnRpdHkiOjIsInJ1bnRpbWUtb3BhcXVlIjoyLCJzb3VyY2VkLWRhdGEiOjAsInN0b3JhZ2Utb3BhcXVlIjoyfSwiZWFyLnZlcmFpc29uLmFubm90YXRlZC1ldmlkZW5jZSI6eyJlYXQtcHJvZmlsZSI6Imh0dHA6Ly9hcm0uY29tL3BzYS8yLjAuMCIsInBzYS1jbGllbnQtaWQiOjEsInBzYS1pbXBsZW1lbnRhdGlvbi1pZCI6IllXTnRaUzFwYlhCc1pXMWxiblJoZEdsdmJpMXBaQzB3TURBd01EQXdNREU9IiwicHNhLWluc3RhbmNlLWlkIjoiQWM3cnJudUpKNk1pZmxNRHoxNFBIM3MwdTFRcTF5VUt3RCs4M2pic0x4VUkiLCJwc2Etbm9uY2UiOiJZRWk5SkZYYmlnUnV6QWNnUUNhSDBHQnlEWlZGVjVLbE52U0VVdFh1WGI0PSIsInBzYS1zZWN1cml0eS1saWZlY3ljbGUiOjEyMjg4LCJwc2Etc29mdHdhcmUtY29tcG9uZW50cyI6W3sibWVhc3VyZW1lbnQtdHlwZSI6IlBSb1QiLCJtZWFzdXJlbWVudC12YWx1ZSI6Ik1iZ0ZxalQ0amZSK2ZLMU80WXlRdFpVWUQwbmhYaDdHZmhNMEVtUjZ0Z2M9Iiwic2lnbmVyLWlkIjoickxzUngrVGFJWElGVWp6a3pob2tXdUdpT2E0OGEvMmVlSEgzNWRpNjZHcz0ifV19fX19.PCUUBd6tyV2WdXuM07de3-ZFpKdoL-uEP7yeP1zNEJOpEJ9sVUDJkINI3nalh7nno2etEitbQABZxBCsy_6tKg
 
 Disposing client session.
 
@@ -273,20 +264,14 @@ veraison clear-stores
 ./provisoning/run.sh qemu
 ```
 ```txt
-2024/02/22 05:19:18 Received request: POST /challenge-response/v1/newSession?nonceSize=32
-2024/02/22 05:19:18 Received response: 201 Created
-2024/02/22 05:19:19 Received request: POST /challenge-response/v1/session/ed70cc0d-d141-11ee-9588-623338313838
-2024/02/22 05:19:19 Received response: 200 OK
-2024/02/22 05:19:19 Attestation result: >> "/tmp/1442613949.jwt" signature successfully verified using "pkey.json"
+Attestation result:
 [claims-set]
 {
     "ear.verifier-id": {
         "build": "N/A",
         "developer": "Veraison Project"
     },
-    "eat_nonce": "YEi9JFXbigRuzAcgQCaH0GByDZVFV5KlNvSEUtXuXb4=",
     "eat_profile": "tag:github.com,2023:veraison/ear",
-    "iat": 1708579159,
     "submods": {
         "PSA_IOT": {
             "ear.appraisal-policy-id": "policy:PSA_IOT",
@@ -303,15 +288,14 @@ veraison clear-stores
             },
             "ear.veraison.annotated-evidence": {
                 "eat-profile": "http://arm.com/psa/2.0.0",
-                "psa-client-id": 1,
-                "psa-implementation-id": "YWNtZS1pbXBsZW1lbnRhdGlvbi1pZC0wMDAwMDAwMDE=",
-                "psa-instance-id": "Ac7rrnuJJ6MiflMDz14PH3s0u1Qq1yUKwD+83jbsLxUI",
-                "psa-nonce": "YEi9JFXbigRuzAcgQCaH0GByDZVFV5KlNvSEUtXuXb4=",
+                "psa-client-id": 1602015901,
+                "psa-implementation-id": "cWVtdS1vcHRlZS1yYS0wMDAwMDAwMDAwMDAwMDAwMDE=",
+                "psa-instance-id": "AZDHHoAwT5jWVWpALAWTszqArL0I5K/5xAKfbhfhA5lR",
                 "psa-security-lifecycle": 12288,
                 "psa-software-components": [
                     {
-                        "measurement-type": "PRoT",
-                        "measurement-value": "MbgFqjT4jfR+fK1O4YyQtZUYD0nhXh7GfhM0EmR6tgc=",
+                        "measurement-type": "ARoT",
+                        "measurement-value": "Qjf7I3AQkjFoBQBbhrKrYPX/toHhnmfZeingk5oE6jA=",
                         "signer-id": "rLsRx+TaIXIFUjzkzhokWuGiOa48a/2eeHH35di66Gs="
                     }
                 ]
@@ -337,21 +321,14 @@ Sourced Data [none]: The Evidence received is insufficient to make a conclusion.
 
 #### 6.1. 登録されていない TA からのアテステーションリクエスト
 
-はじめに、録されてない TA から PTA にリクエストを送り、リモートアテステーションが失敗する流れを確認します。例えば、以下のように [`attester/remote_attestation/ta/include/remote_attestation_ta.h`](attester/remote_attestation/ta/include/remote_attestation_ta.h) の `IMPLEMENTATION_ID` を書き換えると、TA のコードハッシュと implementation ID が変わり、PTA が生成する CBOR(COSE) evidence の内容が変わります。これにより、provisioning されているデータと異なるので、アテステーションが失敗するはずです。
+はじめに、録されてない TA から PTA にリクエストを送り、リモートアテステーションが失敗する流れを確認します。例えば、以下のように [`attester/pta_remote_attestation/remote_attestation/remote_attestation.c`](attester/pta_remote_attestation/remote_attestation/remote_attestation.c) の `IMPLEMENTATION_ID` を書き換えると、TA のコードハッシュと implementation ID が変わり、PTA が生成する CBOR(COSE) evidence の内容が変わります。これにより、provisioning されているデータと異なるので、アテステーションが失敗するはずです。
 ```c
-diff --git a/attester/remote_attestation/ta/include/remote_attestation_ta.h b/attester/remote_attestation/ta/include/remote_attestation_ta.h
-index 4380753..d9cad98 100644
---- a/attester/remote_attestation/ta/include/remote_attestation_ta.h
-+++ b/attester/remote_attestation/ta/include/remote_attestation_ta.h
-@@ -16,7 +16,7 @@
- #define TA_REMOTE_ATTESTATOIN_CMD_GEN_CBOR_EVIDENCE 0
- 
+diff --git a/attester/pta_remote_attestation/remote_attestation/remote_attestation.c b/attester/pta_remote_attestation/remote_attestation/remote_attestation.c
+--- a/attester/pta_remote_attestation/remote_attestation/remote_attestation.c
++++ b/attester/pta_remote_attestation/remote_attestation/remote_attestation.c
  /* Implementation ID used in PSA evidence */
--#define IMPLEMENTATION_ID     "acme-implementation-id-000000001"
-+#define IMPLEMENTATION_ID     "acme-implementation-id-000000002"
- #define IMPLEMENTATION_ID_LEN 32
- 
- #if defined(HOST_BUILD)
+-#define IMPLEMENTATION_ID     "qemu-optee-ra-000000000000000001"
++#define IMPLEMENTATION_ID     "qemu-optee-ra-000000000000000002"
 ```
 
 実際に、コードを書き換えた後にアテステーションリクエストを送信してみます。手順 4.4. で QEMU を起動したターミナルで `ctrl+c` をして、一度 QEMU を終了します。その後、もう一度手順 4.4 に従い、TA の再ビルド・QEMU の再起動をします。
@@ -412,7 +389,7 @@ D/TC:? 0 cmd_get_cbor_evidence:82 b64_measurement_value: gw9v98IV8ozl5nHpsMwl9W5
 ```
 
 この値を provisioning で登録します。そのためには、[`provisoning/data/comid-psa-refval-qemu.json`](provisoning/data/comid-psa-refval-qemu.json) の `digests` の欄を以下のように書き換えてください（実機の場合は `provisoning/data/comid-psa-refval-imx.json` を使います）。
-また、implementation ID も `acme-implementation-id-000000002` に変更しているため、[`provisoning/data/comid-psa-refval-qemu.json`](provisoning/data/comid-psa-refval-qemu.json) と [`provisoning/data/comid-psa-ta.json`](provisoning/data/comid-psa-ta.json) の `psa.impl-id` の欄を以下のように書き換えてください。注意しとして、`psa.impl-id` の欄は implementation ID を base64 エンコードした値を登録する必要があります。例えば、`echo -n "acme-implementation-id-000000002" | base64` のようなコマンドで計算できます。
+また、implementation ID も `qemu-optee-ra-000000000000000002` に変更しているため、[`provisoning/data/comid-psa-refval-qemu.json`](provisoning/data/comid-psa-refval-qemu.json) と [`provisoning/data/comid-psa-ta-qemu.json`](provisoning/data/comid-psa-ta-qemu.json) の `psa.impl-id` の欄を以下のように書き換えてください。注意しとして、`psa.impl-id` の欄は implementation ID を base64 エンコードした値を登録する必要があります。例えば、`echo -n "qemu-optee-ra-000000000000000002" | base64` のようなコマンドで計算できます。
 ```txt
 diff --git a/provisoning/data/comid-psa-refval-qemu.json b/provisoning/data/comid-psa-refval-qemu.json
 index fd7965a..db675c1 100644
@@ -422,8 +399,8 @@ index fd7965a..db675c1 100644
            "class": {
              "id": {
                "type": "psa.impl-id",
--              "value": "YWNtZS1pbXBsZW1lbnRhdGlvbi1pZC0wMDAwMDAwMDE="
-+              "value": "YWNtZS1pbXBsZW1lbnRhdGlvbi1pZC0wMDAwMDAwMDI="
+-              "value": "cWVtdS1vcHRlZS1yYS0wMDAwMDAwMDAwMDAwMDAwMDE="
++              "value": "cWVtdS1vcHRlZS1yYS0wMDAwMDAwMDAwMDAwMDAwMDI="
              },
              "vendor": "ACME",
              "model": "RoadRunner"
@@ -436,16 +413,14 @@ index fd7965a..db675c1 100644
                ]
              }
            }
-diff --git a/provisoning/data/comid-psa-ta.json b/provisoning/data/comid-psa-ta.json
-index 7396dbd..9a813c3 100644
---- a/provisoning/data/comid-psa-ta.json
-+++ b/provisoning/data/comid-psa-ta.json
-@@ -22,7 +22,7 @@
+diff --git a/provisoning/data/comid-psa-ta-qemu.json b/provisoning/data/comid-psa-ta-qemu.json
+--- a/provisoning/data/comid-psa-ta-qemu.json
++++ b/provisoning/data/comid-psa-ta-qemu.json
            "class": {
              "id": {
                "type": "psa.impl-id",
--              "value": "YWNtZS1pbXBsZW1lbnRhdGlvbi1pZC0wMDAwMDAwMDE="
-+              "value": "YWNtZS1pbXBsZW1lbnRhdGlvbi1pZC0wMDAwMDAwMDI="
+-              "value": "cWVtdS1vcHRlZS1yYS0wMDAwMDAwMDAwMDAwMDAwMDE="
++              "value": "cWVtdS1vcHRlZS1yYS0wMDAwMDAwMDAwMDAwMDAwMDI="
              },
              "vendor": "ACME",
              "model": "RoadRunner"
@@ -463,8 +438,8 @@ TRUST ANCHORS:
     "PSA_IOT.hw-model": "RoadRunner",
     "PSA_IOT.hw-vendor": "ACME",
     "PSA_IOT.iak-pub": "-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEMKBCTNIcKUSDii11ySs3526iDZ8A\niTo7Tu6KPAqv7D7gS2XpJFbZiItSs3m9+9Ue6GnvHw/GW2ZZaVtszggXIw==\n-----END PUBLIC KEY-----",
-    "PSA_IOT.impl-id": "YWNtZS1pbXBsZW1lbnRhdGlvbi1pZC0wMDAwMDAwMDE=",
-    "PSA_IOT.inst-id": "Ac7rrnuJJ6MiflMDz14PH3s0u1Qq1yUKwD+83jbsLxUI"
+    "PSA_IOT.impl-id": "cWVtdS1vcHRlZS1yYS0wMDAwMDAwMDAwMDAwMDAwMDE=",
+    "PSA_IOT.inst-id": "AZDHHoAwT5jWVWpALAWTszqArL0I5K/5xAKfbhfhA5lR"
   }
 }
 {
@@ -475,8 +450,8 @@ TRUST ANCHORS:
     "PSA_IOT.hw-model": "RoadRunner",
     "PSA_IOT.hw-vendor": "ACME",
     "PSA_IOT.iak-pub": "-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEMKBCTNIcKUSDii11ySs3526iDZ8A\niTo7Tu6KPAqv7D7gS2XpJFbZiItSs3m9+9Ue6GnvHw/GW2ZZaVtszggXIw==\n-----END PUBLIC KEY-----",
-    "PSA_IOT.impl-id": "YWNtZS1pbXBsZW1lbnRhdGlvbi1pZC0wMDAwMDAwMDI=",
-    "PSA_IOT.inst-id": "Ac7rrnuJJ6MiflMDz14PH3s0u1Qq1yUKwD+83jbsLxUI"
+    "PSA_IOT.impl-id": "cWVtdS1vcHRlZS1yYS0wMDAwMDAwMDAwMDAwMDAwMDI=",
+    "PSA_IOT.inst-id": "AZDHHoAwT5jWVWpALAWTszqArL0I5K/5xAKfbhfhA5lR"
   }
 }
 
@@ -489,9 +464,9 @@ ENDORSEMENTS:
   "attributes": {
     "PSA_IOT.hw-model": "RoadRunner",
     "PSA_IOT.hw-vendor": "ACME",
-    "PSA_IOT.impl-id": "YWNtZS1pbXBsZW1lbnRhdGlvbi1pZC0wMDAwMDAwMDE=",
+    "PSA_IOT.impl-id": "cWVtdS1vcHRlZS1yYS0wMDAwMDAwMDAwMDAwMDAwMDE=",
     "PSA_IOT.measurement-desc": "sha-256",
-    "PSA_IOT.measurement-type": "PRoT",
+    "PSA_IOT.measurement-type": "ARoT",
     "PSA_IOT.measurement-value": "MbgFqjT4jfR+fK1O4YyQtZUYD0nhXh7GfhM0EmR6tgc=",
     "PSA_IOT.signer-id": "rLsRx+TaIXIFUjzkzhokWuGiOa48a/2eeHH35di66Gs="
   }
@@ -503,9 +478,9 @@ ENDORSEMENTS:
   "attributes": {
     "PSA_IOT.hw-model": "RoadRunner",
     "PSA_IOT.hw-vendor": "ACME",
-    "PSA_IOT.impl-id": "YWNtZS1pbXBsZW1lbnRhdGlvbi1pZC0wMDAwMDAwMDI=",
+    "PSA_IOT.impl-id": "cWVtdS1vcHRlZS1yYS0wMDAwMDAwMDAwMDAwMDAwMDI=",
     "PSA_IOT.measurement-desc": "sha-256",
-    "PSA_IOT.measurement-type": "PRoT",
+    "PSA_IOT.measurement-type": "ARoT",
     "PSA_IOT.measurement-value": "gw9v98IV8ozl5nHpsMwl9W5nGGC0bzAYMPShwvff0vY=",
     "PSA_IOT.signer-id": "rLsRx+TaIXIFUjzkzhokWuGiOa48a/2eeHH35di66Gs="
   }
@@ -539,14 +514,14 @@ ENDORSEMENTS:
             },
             "ear.veraison.annotated-evidence": {
                 "eat-profile": "http://arm.com/psa/2.0.0",
-                "psa-client-id": 1,
-                "psa-implementation-id": "YWNtZS1pbXBsZW1lbnRhdGlvbi1pZC0wMDAwMDAwMDI=",
-                "psa-instance-id": "Ac7rrnuJJ6MiflMDz14PH3s0u1Qq1yUKwD+83jbsLxUI",
+                "psa-client-id": 403236456,
+                "psa-implementation-id": "cWVtdS1vcHRlZS1yYS0wMDAwMDAwMDAwMDAwMDAwMDI=",
+                "psa-instance-id": "AZDHHoAwT5jWVWpALAWTszqArL0I5K/5xAKfbhfhA5lR",
                 "psa-nonce": "yBULiGEcBq8wtk5xwRikzPZt1GAV5n8L0nXgPY03jHo=",
                 "psa-security-lifecycle": 12288,
                 "psa-software-components": [
                     {
-                        "measurement-type": "PRoT",
+                        "measurement-type": "ARoT",
                         "measurement-value": "gw9v98IV8ozl5nHpsMwl9W5nGGC0bzAYMPShwvff0vY=",
                         "signer-id": "rLsRx+TaIXIFUjzkzhokWuGiOa48a/2eeHH35di66Gs="
                     }
@@ -678,7 +653,7 @@ print(pem.strip())
 "
 ```
 
-計算した値で `provisoning/data/comid-psa-ta.json` の `instance` と
+計算した値で `provisoning/data/comid-psa-ta-imx.json` の `instance` と
 `verification-keys` を更新してください。
 
 #### 8.1 シナリオ A: 埋め込みテスト鍵
@@ -698,7 +673,7 @@ services/deployments/docker/veraison clear-stores
 ./provisoning/run.sh imx
 ```
 
-デフォルトの `comid-psa-ta.json` にはテスト鍵の trust anchor が設定済みです。
+デフォルトの `comid-psa-ta-imx.json` にはテスト鍵の trust anchor が設定済みです。
 
 **Attestation 実行** (デバイス側):
 ```bash
@@ -731,7 +706,7 @@ Black key generation completed.
 ```
 
 **手順 2 — Provisioning** (ホスト側): PubX/PubY から instance ID と PEM 公開鍵を
-計算し（上記ヘルパー参照）、`comid-psa-ta.json` を更新後:
+計算し（上記ヘルパー参照）、`comid-psa-ta-imx.json` を更新後:
 ```bash
 services/deployments/docker/veraison clear-stores
 ./provisoning/run.sh imx
@@ -769,7 +744,7 @@ Key conversion completed.
 公開鍵 (PubX/PubY) は出力されません。元の鍵ペアから既知のためです。
 
 **手順 2 — Provisioning** (ホスト側): 既知の PubX/PubY から instance ID と
-PEM 公開鍵を計算し（上記ヘルパー参照）、`comid-psa-ta.json` を更新後:
+PEM 公開鍵を計算し（上記ヘルパー参照）、`comid-psa-ta-imx.json` を更新後:
 ```bash
 services/deployments/docker/veraison clear-stores
 ./provisoning/run.sh imx
