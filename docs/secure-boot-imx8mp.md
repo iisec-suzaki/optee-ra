@@ -23,15 +23,39 @@ cd ./attester/container-imx
 YOCTO_DIR=/dev/shm/yocto ./yocto.sh
 ```
 
-## 2) Generate signed imx-boot and patched WIC
+## 2) Generate signing keys (one-time)
 
 ```bash
 OUT_DIR=../optee-ra-artifacts/secure-boot
-OUT_WIC="$YOCTO_DIR/build/tmp/deploy/images/imx8mpevk/core-image-minimal-imx8mpevk.rootfs.wic.zst"
+
+./attester/container-imx/secure-boot-gen-keys.sh \
+  --cst-tar ./cst-3.1.0.tgz \
+  --out-dir "$OUT_DIR"
+```
+
+This extracts CST, generates a HABv4 PKI tree (RSA 2048, SHA-256, 4 SRK CAs),
+and prints the SRK fuse values. Keys are stored in `$OUT_DIR/cst/`.
+
+The script refuses to run if keys already exist to prevent accidental
+overwrite. Delete `$OUT_DIR/cst/` to regenerate.
+
+## 3) Backup the signing keys (mandatory)
+
+Archive keys before burning fuses:
+
+```bash
+tar -czf "$OUT_DIR/secure-boot-keys.tar.gz" \
+  -C "$OUT_DIR" cst
+```
+
+## 4) Sign and patch WIC
+
+```bash
+OUT_WIC=/dev/shm/yocto/build/tmp/deploy/images/imx8mpevk/core-image-minimal-imx8mpevk.rootfs.wic.zst
 
 ./attester/container-imx/secure-boot-imx8mp.sh \
   --yocto-dir /dev/shm/yocto \
-  --cst-tar ./cst-3.1.0.tgz \
+  --cst-dir "$OUT_DIR/cst" \
   --out-dir "$OUT_DIR" \
   --patch-wic "$OUT_WIC"
 ```
@@ -49,12 +73,12 @@ You can run the individual steps directly:
 ```bash
 ./attester/container-imx/secure-boot-sign-imx-boot.sh \
   --yocto-dir /dev/shm/yocto \
-  --cst-tar ./cst-3.1.0.tgz \
+  --cst-dir "$OUT_DIR/cst" \
   --out-dir "$OUT_DIR"
 
 ./attester/container-imx/secure-boot-sign-kernel.sh \
   --yocto-dir /dev/shm/yocto \
-  --cst-tar ./cst-3.1.0.tgz \
+  --cst-dir "$OUT_DIR/cst" \
   --out-dir "$OUT_DIR"
 
 ./attester/container-imx/secure-boot-patch-wic.sh \
@@ -64,19 +88,7 @@ You can run the individual steps directly:
   --out-dir "$OUT_DIR"
 ```
 
-## 3) Backup the signing keys (mandatory)
-
-The CST helper generates a PKI tree and SRK materials under:
-`$OUT_DIR/cst`
-
-Archive it before burning fuses:
-
-```bash
-sudo tar -czf "$OUT_DIR/secure-boot-keys.tar.gz" \
-  -C "$OUT_DIR" cst
-```
-
-## 4) Extract SRK fuse values
+## 5) Extract SRK fuse values
 
 ```bash
 hexdump -e '/4 "0x"' -e '/4 "%X""\n"' \
@@ -85,7 +97,7 @@ hexdump -e '/4 "0x"' -e '/4 "%X""\n"' \
 
 This prints 8 lines. You will use them in `fuse prog` below.
 
-## 5) Write SD card
+## 6) Write SD card
 
 ```bash
 cd "$OUT_DIR"
@@ -95,7 +107,7 @@ sudo dd if=core-image-minimal-imx8mpevk.rootfs.wic of=/dev/sdX bs=4M status=prog
 
 Replace `/dev/sdX` with the actual SD device.
 
-## 6) Open mode validation (U-Boot)
+## 7) Open mode validation (U-Boot)
 
 ```text
 => hab_status
@@ -103,7 +115,7 @@ Replace `/dev/sdX` with the actual SD device.
 
 Expected: `Secure boot disabled` (Open). This is correct before closing.
 
-## 7) Program SRK fuses (U-Boot)
+## 8) Program SRK fuses (U-Boot)
 
 **Before writing**:
 
@@ -112,7 +124,7 @@ Expected: `Secure boot disabled` (Open). This is correct before closing.
 => fuse read 7 0 4
 ```
 
-**Write SRK hash** (replace values with the 8 lines from Step 4):
+**Write SRK hash** (replace values with the 8 lines from Step 5):
 
 ```text
 => fuse prog 6 0 0x........
@@ -139,7 +151,7 @@ Reboot:
 => reset
 ```
 
-## 8) Close the device (irreversible)
+## 9) Close the device (irreversible)
 
 Only after Open validation is complete:
 
@@ -155,7 +167,7 @@ Then reboot and check:
 
 Expected: `Secure boot enabled`.
 
-## 9) Remote Attestation checks
+## 10) Remote Attestation checks
 
 If `relying-party-service` is not resolvable, add it:
 
@@ -175,7 +187,7 @@ If you reuse a BlackKey generated before closing the device, attestation should 
 (e.g. `Failed to sign payload` / `TEEC_InvokeCommand failed`). Secure Boot changes
 the CAAM key context (MPMR/BKEK), so old BlackKeys are no longer valid.
 
-## 10) BlackKey non-reuse test (two devices)
+## 11) BlackKey non-reuse test (two devices)
 
 This test proves that CAAM BlackKeys are device-bound. Even when two devices
 share the same SRK fuse values, each device's JDKEK (derived from unique
