@@ -1,4 +1,6 @@
+#include <config.h>
 #include <crypto/crypto.h>
+#include <kernel/linker.h>
 #include <kernel/user_access.h>
 #include <kernel/user_mode_ctx.h>
 
@@ -128,5 +130,69 @@ TEE_Result get_hash_ta_memory(uint8_t *out, size_t out_sz)
     s = ts_pop_current_session();
     res = hash_regions(&uctx->vm_info, out);
     ts_push_current_session(s);
+    return res;
+}
+
+/*
+ * Hash the OP-TEE OS (core) immutable memory: code (.text) and read-only
+ * data (.rodata). This is a runtime measurement of the trusted OS and
+ * mirrors the official OP-TEE attestation PTA (cmd_hash_tee_memory).
+ *
+ * Note: this is a self-measurement; its trustworthiness is ultimately
+ * rooted in secure boot (HAB/SRK verifying the OP-TEE image at load time).
+ */
+TEE_Result get_hash_tee_memory(uint8_t *out, size_t out_sz)
+{
+    TEE_Result res = TEE_SUCCESS;
+    void *ctx = NULL;
+
+    if (out_sz < TEE_SHA256_HASH_SIZE)
+        return TEE_ERROR_SHORT_BUFFER;
+
+    res = crypto_hash_alloc_ctx(&ctx, TEE_ALG_SHA256);
+    if (res)
+        return res;
+
+    res = crypto_hash_init(ctx);
+    if (res)
+        goto out;
+
+    res = crypto_hash_update(ctx, __text_start,
+                             __text_data_start - __text_start);
+    if (res)
+        goto out;
+    res = crypto_hash_update(ctx, __text_data_end,
+                             __text_end - __text_data_end);
+    if (res)
+        goto out;
+    if (IS_ENABLED(CFG_WITH_PAGER)) {
+        res = crypto_hash_update(ctx, __text_init_start,
+                                 __text_init_end - __text_init_start);
+        if (res)
+            goto out;
+        res = crypto_hash_update(ctx, __text_pageable_start,
+                                 __text_pageable_end - __text_pageable_start);
+        if (res)
+            goto out;
+    }
+    res = crypto_hash_update(ctx, __rodata_start,
+                             __rodata_end - __rodata_start);
+    if (res)
+        goto out;
+    if (IS_ENABLED(CFG_WITH_PAGER)) {
+        res = crypto_hash_update(ctx, __rodata_init_start,
+                                 __rodata_init_end - __rodata_init_start);
+        if (res)
+            goto out;
+        res = crypto_hash_update(ctx, __rodata_pageable_start,
+                                 __rodata_pageable_end -
+                                     __rodata_pageable_start);
+        if (res)
+            goto out;
+    }
+
+    res = crypto_hash_final(ctx, out, TEE_SHA256_HASH_SIZE);
+out:
+    crypto_hash_free_ctx(ctx);
     return res;
 }

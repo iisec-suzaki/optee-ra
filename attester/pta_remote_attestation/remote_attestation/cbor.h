@@ -29,16 +29,25 @@
 #define COSE_ALGORITHM_ES256               -7
 #define COSE_SIG_CONTEXT_STRING_SIGNATURE1 "Signature1"
 
+/* One PSA software component (an entry in the Software Components claim). */
+struct psa_sw_component {
+    const char *measurement_type;     /* claim 1 (text)  */
+    const uint8_t *measurement_value; /* claim 2 (bytes) */
+    size_t measurement_value_len;
+    const char *version;              /* claim 4 (text); NULL to omit */
+    const uint8_t *signer_id;         /* claim 5 (bytes) */
+    size_t signer_id_len;
+};
+
 UsefulBufC
 encode_evidence_to_cbor(const char *eat_profile, const int psa_client_id,
                         const int psa_security_lifecycle,
                         const uint8_t *psa_implementation_id,
                         size_t psa_implementation_id_len,
-                        const char *measurement_type, const uint8_t *signer_id,
-                        size_t signer_id_len, const uint8_t *psa_instance_id,
+                        const struct psa_sw_component *components,
+                        size_t num_components, const uint8_t *psa_instance_id,
                         size_t psa_instance_id_len, const uint8_t *psa_nonce,
-                        size_t psa_nonce_len, const uint8_t *measurement_value,
-                        size_t mv_len, UsefulBuf cbor_evidence_buffer);
+                        size_t psa_nonce_len, UsefulBuf cbor_evidence_buffer);
 
 UsefulBufC generate_cose(UsefulBufC ubc_cbor_evidence,
                          UsefulBuf buffer_for_cose,
