@@ -341,6 +341,12 @@ Attestation result:
                         "measurement-type": "ARoT",
                         "measurement-value": "Qjf7I3AQkjFoBQBbhrKrYPX/toHhnmfZeingk5oE6jA=",
                         "signer-id": "rLsRx+TaIXIFUjzkzhokWuGiOa48a/2eeHH35di66Gs="
+                    },
+                    {
+                        "measurement-type": "PRoT",
+                        "measurement-value": "GEXvNatCVOIWXWTrDuDroAeUoynz136EUnSEp42BGhM=",
+                        "signer-id": "rLsRx+TaIXIFUjzkzhokWuGiOa48a/2eeHH35di66Gs=",
+                        "version": "4.6.0"
                     }
                 ]
             }
@@ -358,6 +364,21 @@ Runtime Opaque [affirming]: the Attester's executing Target Environment and Atte
 Storage Opaque [affirming]: the Attester encrypts all secrets in persistent storage via using keys which are never visible outside an HSM or the Trusted Execution Environment hardware.
 Sourced Data [none]: The Evidence received is insufficient to make a conclusion.
 ```
+
+> **OP-TEE OS version (the `PRoT` software component).** In addition to the
+> `ARoT` component (which measures the Trusted Application), the evidence
+> includes a second software component with `measurement-type` `"PRoT"` that
+> reports the **OP-TEE OS version** in its `version` field (e.g. `"4.6.0"`), as
+> shown above.
+>
+> The OP-TEE OS is identified by the stable `version` field. Its
+> `measurement-value` is a runtime hash of the immutable core (`.text` +
+> `.rodata`) and is **not** registered as a reference value: that hash is
+> build-specific (OP-TEE embeds the build timestamp in `core_v_str`, which is
+> part of the hashed `.rodata`), so it changes on every build. OS integrity is
+> rooted in secure boot (HAB/SRK on i.MX 8M Plus). Because no `PRoT` reference
+> value is provisioned, the verifier ignores this component for matching and
+> `ear.status` remains `affirming`.
 
 
 ### 6. Scenario for Sending Attestation Requests from Different TAs

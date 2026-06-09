@@ -297,6 +297,12 @@ Attestation result:
                         "measurement-type": "ARoT",
                         "measurement-value": "Qjf7I3AQkjFoBQBbhrKrYPX/toHhnmfZeingk5oE6jA=",
                         "signer-id": "rLsRx+TaIXIFUjzkzhokWuGiOa48a/2eeHH35di66Gs="
+                    },
+                    {
+                        "measurement-type": "PRoT",
+                        "measurement-value": "GEXvNatCVOIWXWTrDuDroAeUoynz136EUnSEp42BGhM=",
+                        "signer-id": "rLsRx+TaIXIFUjzkzhokWuGiOa48a/2eeHH35di66Gs=",
+                        "version": "4.6.0"
                     }
                 ]
             }
@@ -314,6 +320,19 @@ Runtime Opaque [affirming]: the Attester's executing Target Environment and Atte
 Storage Opaque [affirming]: the Attester encrypts all secrets in persistent storage via using keys which are never visible outside an HSM or the Trusted Execution Environment hardware.
 Sourced Data [none]: The Evidence received is insufficient to make a conclusion.
 ```
+
+> **OP-TEE OS のバージョン(`PRoT` ソフトウェアコンポーネント)。** TA を測定する
+> `ARoT` コンポーネントに加え、evidence には `measurement-type` が `"PRoT"` の
+> 2 つ目のソフトウェアコンポーネントが含まれ、その `version` フィールドに
+> **OP-TEE OS のバージョン**(例: `"4.6.0"`)が入ります(上記参照)。
+>
+> OP-TEE OS は安定した `version` フィールドで識別します。`measurement-value` は
+> コアの不変領域(`.text` + `.rodata`)の実行時ハッシュですが、**参照値としては
+> 登録しません**。このハッシュはビルド毎に変わるためです(OP-TEE は `core_v_str`
+> にビルド日時を埋め込み、それが測定対象の `.rodata` に含まれる)。OS の完全性
+> 自体はセキュアブート(i.MX 8M Plus では HAB/SRK)が担保します。`PRoT` の参照値を
+> 登録しないため、検証側はこのコンポーネントを照合対象外として無視し、
+> `ear.status` は `affirming` のままになります。
 
 ### 6. 異なる TA からアテステーションリクエストを送信するシナリオ
 
