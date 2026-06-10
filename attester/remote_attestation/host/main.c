@@ -1,8 +1,10 @@
 #include <err.h>
+#include <inttypes.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 /* OP-TEE TEE client API (built by optee_client) */
 #include <tee_client_api.h>
@@ -11,6 +13,35 @@
 #include <remote_attestation_ta.h>
 
 #include "client.h"
+#include "perf.h"
+
+/* Performance measurement logging (see perf.h) */
+int ra_perf_enabled = 0;
+const char *ra_perf_keymode = "-";
+
+uint64_t ra_perf_now_us(void) {
+    struct timespec ts;
+
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return (uint64_t)ts.tv_sec * 1000000ULL + (uint64_t)ts.tv_nsec / 1000;
+}
+
+void ra_perf_log(const char *event, uint64_t duration_us) {
+    if (ra_perf_enabled)
+        printf("RA_PERF|host|%s|%" PRIu64 "|key=%s\n", event, duration_us,
+               ra_perf_keymode);
+}
+
+static int get_random_nonce(uint8_t *nonce, size_t sz) {
+    FILE *f = fopen("/dev/urandom", "rb");
+    size_t n = 0;
+
+    if (!f)
+        return -1;
+    n = fread(nonce, 1, sz, f);
+    fclose(f);
+    return n == sz ? 0 : -1;
+}
 
 void print_binary_in_hex(uint8_t *buf, size_t sz) {
     int i = 0;
@@ -59,6 +90,9 @@ static void print_usage(const char *prog) {
     printf("  --key-hex HEX             Use key blob in hex for signing\n");
     printf("  --pubx-hex HEX            Public key X coordinate (32 bytes hex)\n");
     printf("  --puby-hex HEX            Public key Y coordinate (32 bytes hex)\n");
+    printf("  --perf                    Print RA_PERF timing logs (or RA_PERF=1)\n");
+    printf("  --loop N                  Repeat the attestation N times\n");
+    printf("  --no-server               Skip the verifier; use a local random nonce\n");
     printf("\n");
     printf("When using --key-hex with a CAAM black key, also supply --pubx-hex\n");
     printf("and --puby-hex so the PTA can compute the correct PSA instance-id.\n");
@@ -85,13 +119,26 @@ int main(int argc, char *argv[]) {
     size_t host_pub_y_len = 0;
     bool mode_generate = false;
     bool mode_convert = false;
+    bool no_server = false;
+    long loop_count = 1;
+
+    {
+        const char *env_perf = getenv("RA_PERF");
+
+        if (env_perf && strcmp(env_perf, "0") != 0)
+            ra_perf_enabled = 1;
+    }
 
     if (argc > 1 && strcmp(argv[1], "--generate-blackkey") == 0) {
-        if (argc != 2)
-            errx(1, "--generate-blackkey takes no arguments");
+        if (argc == 3 && strcmp(argv[2], "--perf") == 0)
+            ra_perf_enabled = 1;
+        else if (argc != 2)
+            errx(1, "--generate-blackkey takes no arguments (except --perf)");
         mode_generate = true;
     } else if (argc > 1 && strcmp(argv[1], "--convert-key") == 0) {
-        if (argc != 3)
+        if (argc == 4 && strcmp(argv[3], "--perf") == 0)
+            ra_perf_enabled = 1;
+        else if (argc != 3)
             errx(1, "--convert-key requires a hex key argument");
         mode_convert = true;
     }
@@ -132,6 +179,17 @@ int main(int argc, char *argv[]) {
                 errx(1, "--puby-hex must be exactly 32 bytes");
             has_puby = true;
             i++;
+            } else if (strcmp(argv[i], "--perf") == 0) {
+                ra_perf_enabled = 1;
+            } else if (strcmp(argv[i], "--loop") == 0) {
+                if (i + 1 >= argc)
+                    errx(1, "Missing value for --loop");
+                loop_count = strtol(argv[i + 1], NULL, 10);
+                if (loop_count < 1)
+                    errx(1, "Invalid --loop value");
+                i++;
+            } else if (strcmp(argv[i], "--no-server") == 0) {
+                no_server = true;
             } else {
                 errx(1, "Unknown argument: %s", argv[i]);
             }
@@ -143,16 +201,22 @@ int main(int argc, char *argv[]) {
             errx(1, "--pubx-hex and --puby-hex must be specified together");
     }
 
+    uint64_t t0 = 0;
+
     /* Initialize a context connecting us to the TEE */
+    t0 = ra_perf_now_us();
     res = TEEC_InitializeContext(NULL, &ctx);
     if (res != TEEC_SUCCESS)
         errx(1, "TEEC_InitializeContext failed with code 0x%x", res);
+    ra_perf_log("teec_init", ra_perf_now_us() - t0);
 
+    t0 = ra_perf_now_us();
     res = TEEC_OpenSession(&ctx, &sess, &ta_uuid, TEEC_LOGIN_PUBLIC, NULL, NULL,
                            &err_origin);
     if (res != TEEC_SUCCESS)
         errx(1, "TEEC_Opensession failed with code 0x%x origin 0x%x", res,
              err_origin);
+    ra_perf_log("teec_open_session", ra_perf_now_us() - t0);
 
     /* Convert plain key to black key */
     if (mode_convert) {
@@ -178,12 +242,14 @@ int main(int argc, char *argv[]) {
         op_c.params[1].tmpref.size = sizeof(black_key);
 
         printf("\nConverting plain key to black key...\n");
+        t0 = ra_perf_now_us();
         res = TEEC_InvokeCommand(&sess, TA_REMOTE_ATTESTATION_CMD_CONVERT_TO_BLACKKEY,
                                  &op_c, &err_origin);
         if (res != TEEC_SUCCESS) {
             free(plain_key);
             errx(1, "Convert key failed 0x%x origin 0x%x", res, err_origin);
         }
+        ra_perf_log("blackkey_convert", ra_perf_now_us() - t0);
 
         printf("BlackKey(hex): ");
         print_binary_in_hex(black_key, op_c.params[1].tmpref.size);
@@ -209,6 +275,7 @@ int main(int argc, char *argv[]) {
         op_p.params[2].tmpref.buffer = pub_y;
         op_p.params[2].tmpref.size = sizeof(pub_y);
         printf("\nGenerating new black key...\n");
+        t0 = ra_perf_now_us();
         res = TEEC_InvokeCommand(&sess, TA_REMOTE_ATTESTATION_CMD_GENERATE_BLACKKEY,
                                  &op_p, &err_origin);
         if (res != TEEC_ERROR_SHORT_BUFFER && res != TEEC_SUCCESS)
@@ -226,6 +293,8 @@ int main(int argc, char *argv[]) {
             free(blob);
             errx(1, "Generate black key (fetch) failed 0x%x origin 0x%x", res, err_origin);
         }
+        /* Includes both invocations (size probe + fetch = two keygens) */
+        ra_perf_log("blackkey_generate", ra_perf_now_us() - t0);
 
         printf("BlackKey(hex): ");
         print_binary_in_hex(blob, op_p.params[0].tmpref.size);
@@ -251,13 +320,6 @@ int main(int argc, char *argv[]) {
         free(blob);
         printf("Black key generation completed.\n");
         return 0;
-    }
-
-    /* Connect to the server and establish a session */
-    ChallengeResponseSession *session = open_session();
-    if (session == NULL) {
-        printf("Failed to open session.\n");
-        return 1;
     }
 
     /* Optional: pass private key from host (SW 'd' or CAAM black key) */
@@ -292,53 +354,93 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    /* Request TA to issue evidence based on a given nonce */
-    /* The buffer allocated here must be large enough to hold the CBOR evidece
-     */
-    uint8_t cbor_evidence[1024] = {0};
-    TEEC_Operation op = {0};
+    /* Key-path label for the RA_PERF log lines */
+    if (packed_key_param && packed_key_param_len > 0)
+        ra_perf_keymode = packed_key_param_len > 96 ? "black" : "plain";
+    else
+        ra_perf_keymode = "embedded";
 
-    if (packed_key_param && packed_key_param_len > 0) {
-        /* Params: nonce(in), output(out), packed_key(in) */
-        op.paramTypes = TEEC_PARAM_TYPES(
-            TEEC_MEMREF_TEMP_INPUT, TEEC_MEMREF_TEMP_OUTPUT,
-            TEEC_MEMREF_TEMP_INPUT, TEEC_NONE);
-    } else {
-        /* Params: nonce(in), output(out) */
-        op.paramTypes = TEEC_PARAM_TYPES(
-            TEEC_MEMREF_TEMP_INPUT, TEEC_MEMREF_TEMP_OUTPUT,
-            TEEC_NONE, TEEC_NONE);
+    for (long iter = 0; iter < loop_count; iter++) {
+        ChallengeResponseSession *session = NULL;
+        uint8_t local_nonce[32] = {0};
+        const uint8_t *nonce = NULL;
+        size_t nonce_sz = 0;
+        uint64_t t_total = ra_perf_now_us();
+
+        if (no_server) {
+            /* No verifier round trip: attest against a local random nonce */
+            if (get_random_nonce(local_nonce, sizeof(local_nonce)) != 0)
+                errx(1, "Failed to generate a local nonce");
+            nonce = local_nonce;
+            nonce_sz = sizeof(local_nonce);
+        } else {
+            /* Connect to the server and establish a session */
+            session = open_session();
+            if (session == NULL) {
+                printf("Failed to open session.\n");
+                return 1;
+            }
+            nonce = (const uint8_t *)session->nonce;
+            nonce_sz = session->nonce_size;
+        }
+
+        /* Request TA to issue evidence based on a given nonce */
+        /* The buffer allocated here must be large enough to hold the CBOR
+         * evidece */
+        uint8_t cbor_evidence[1024] = {0};
+        TEEC_Operation op = {0};
+
+        if (packed_key_param && packed_key_param_len > 0) {
+            /* Params: nonce(in), output(out), packed_key(in) */
+            op.paramTypes = TEEC_PARAM_TYPES(
+                TEEC_MEMREF_TEMP_INPUT, TEEC_MEMREF_TEMP_OUTPUT,
+                TEEC_MEMREF_TEMP_INPUT, TEEC_NONE);
+        } else {
+            /* Params: nonce(in), output(out) */
+            op.paramTypes = TEEC_PARAM_TYPES(
+                TEEC_MEMREF_TEMP_INPUT, TEEC_MEMREF_TEMP_OUTPUT,
+                TEEC_NONE, TEEC_NONE);
+        }
+        op.params[0].tmpref.buffer = (uint8_t *)nonce;
+        op.params[0].tmpref.size = nonce_sz;
+        op.params[1].tmpref.buffer = cbor_evidence;
+        op.params[1].tmpref.size = sizeof(cbor_evidence);
+        /* param[2] is packed key: PubX(32) || PubY(32) || key_blob(N) */
+        if (packed_key_param && packed_key_param_len > 0) {
+            op.params[2].tmpref.buffer = packed_key_param;
+            op.params[2].tmpref.size = packed_key_param_len;
+        }
+
+        printf("\nInvoke TA.\n");
+        t0 = ra_perf_now_us();
+        res = TEEC_InvokeCommand(&sess,
+                                 TA_REMOTE_ATTESTATOIN_CMD_GEN_CBOR_EVIDENCE,
+                                 &op, &err_origin);
+        if (res != TEEC_SUCCESS)
+            errx(1, "TEEC_InvokeCommand failed with code 0x%x origin 0x%x",
+                 res, err_origin);
+        ra_perf_log("evidence_get", ra_perf_now_us() - t0);
+
+        printf("Invoked TA successfully.\n\n\n");
+
+        /* Receive CBOR(COSE) evidence from PTA */
+        printf("Received evidence of CBOR (COSE) format from PTA.\n\n");
+
+        t0 = ra_perf_now_us();
+        printf("CBOR(COSE) size: %ld\n", op.params[1].tmpref.size);
+        printf("CBOR(COSE): ");
+        print_binary_in_hex(op.params[1].tmpref.buffer,
+                            op.params[1].tmpref.size);
+        printf("\n\n");
+        ra_perf_log("print_evidence", ra_perf_now_us() - t0);
+
+        /* Send the generated evidence to the session just established */
+        if (!no_server)
+            post_evidence(session, op.params[1].tmpref.buffer,
+                          op.params[1].tmpref.size);
+
+        ra_perf_log("total", ra_perf_now_us() - t_total);
     }
-    op.params[0].tmpref.buffer = (uint8_t *)session->nonce;
-    op.params[0].tmpref.size = session->nonce_size;
-    op.params[1].tmpref.buffer = cbor_evidence;
-    op.params[1].tmpref.size = sizeof(cbor_evidence);
-    /* param[2] is packed key: PubX(32) || PubY(32) || key_blob(N) */
-    if (packed_key_param && packed_key_param_len > 0) {
-        op.params[2].tmpref.buffer = packed_key_param;
-        op.params[2].tmpref.size = packed_key_param_len;
-    }
-
-    printf("\nInvoke TA.\n");
-    res = TEEC_InvokeCommand(&sess, TA_REMOTE_ATTESTATOIN_CMD_GEN_CBOR_EVIDENCE,
-                             &op, &err_origin);
-    if (res != TEEC_SUCCESS)
-        errx(1, "TEEC_InvokeCommand failed with code 0x%x origin 0x%x", res,
-             err_origin);
-
-    printf("Invoked TA successfully.\n\n\n");
-
-    /* Receive CBOR(COSE) evidence from PTA */
-    printf("Received evidence of CBOR (COSE) format from PTA.\n\n");
-
-    printf("CBOR(COSE) size: %ld\n", op.params[1].tmpref.size);
-    printf("CBOR(COSE): ");
-    print_binary_in_hex(op.params[1].tmpref.buffer, op.params[1].tmpref.size);
-    printf("\n\n");
-
-    /* Send the generated evidence to the session just established */
-    post_evidence(session, op.params[1].tmpref.buffer,
-                  op.params[1].tmpref.size);
 
     if (packed_key_param && packed_key_param != host_key)
         free(packed_key_param);

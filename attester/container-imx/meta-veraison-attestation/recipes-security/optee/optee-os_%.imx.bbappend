@@ -8,6 +8,16 @@ PTA_EXTERNAL_SRC ?= "/attester/pta_remote_attestation"
 # Enable the custom remote_attestation PTA
 EXTRA_OEMAKE:append = " CFG_REMOTE_ATTESTATION_PTA=y"
 
+# Performance measurement logging. Enable from local.conf with:
+#   CFG_REMOTE_ATTESTATION_PERF:pn-optee-os = "y"
+#   CFG_REMOTE_ATTESTATION_PERF:pn-veraison-attestation = "y"
+# CFG_TEE_CORE_LOG_LEVEL must be raised together with the flag because
+# meta-freescale's optee-os-common-fslc-imx.inc forces it to 0 (all core
+# trace compiled out, RA_PERF lines included); this append is parsed after
+# the .inc, so the later assignment wins on the make command line.
+CFG_REMOTE_ATTESTATION_PERF ?= "n"
+EXTRA_OEMAKE:append = "${@' CFG_REMOTE_ATTESTATION_PERF=y CFG_TEE_CORE_LOG_LEVEL=2' if d.getVar('CFG_REMOTE_ATTESTATION_PERF') == 'y' else ''}"
+
 # Copy PTA source to OP-TEE OS source tree before compile
 do_configure:append() {
     # Create PTA directory in OP-TEE OS source
@@ -32,6 +42,8 @@ do_configure:append() {
     cp ${PTA_SRC}/hash.h ${S}/core/pta/remote_attestation/
     cp ${PTA_SRC}/sign.c ${S}/core/pta/remote_attestation/
     cp ${PTA_SRC}/sign.h ${S}/core/pta/remote_attestation/
+    cp ${PTA_SRC}/perf.c ${S}/core/pta/remote_attestation/
+    cp ${PTA_SRC}/perf.h ${S}/core/pta/remote_attestation/
     cp ${PTA_SRC}/base64.c ${S}/core/pta/remote_attestation/
     cp ${PTA_SRC}/base64.h ${S}/core/pta/remote_attestation/
     cp ${PTA_SRC}/ocotp.c ${S}/core/pta/remote_attestation/

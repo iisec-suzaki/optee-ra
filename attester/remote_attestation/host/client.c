@@ -3,6 +3,7 @@
 #include <string.h>
 
 #include "client.h"
+#include "perf.h"
 
 int find_psa_media_type_index(const ChallengeResponseSession *session) {
     for (int i = 0; i < session->accept_type_count; i++) {
@@ -22,6 +23,7 @@ ChallengeResponseSession *open_session() {
              "%s/challenge-response/v1/newSession", base_url);
 
     /* Now run the challenge response session, using the discovered endpoint */
+    uint64_t t0 = ra_perf_now_us();
     VeraisonResult status = open_challenge_response_session(
         new_session_endpoint, 32, /* Nonce size */
         NULL, &session);
@@ -30,6 +32,7 @@ ChallengeResponseSession *open_session() {
         printf("Failed to allocate Veraison client session.\n");
         goto cleanup;
     }
+    ra_perf_log("veraison_new_session", ra_perf_now_us() - t0);
 
     printf("\nOpened new Veraison client session at %s\n",
            session->session_url);
@@ -73,6 +76,7 @@ VeraisonResult post_evidence(ChallengeResponseSession *session,
     printf("Supplying the generated evidence to the server.\n");
 
     /* Supply our evidence. */
+    uint64_t t0 = ra_perf_now_us();
     VeraisonResult status = challenge_response(
         session, evidence_len, evidence,
         session->accept_type_list[find_psa_media_type_index(session)]);
@@ -81,6 +85,7 @@ VeraisonResult post_evidence(ChallengeResponseSession *session,
         printf("Failed to supply evidence to server.\n");
         goto cleanup;
     }
+    ra_perf_log("veraison_post_evidence", ra_perf_now_us() - t0);
     printf("\nReceived the attestation result from the server.\n");
 
     // And, finally, display the server's response, which will be a JWT

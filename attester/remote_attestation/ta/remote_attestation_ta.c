@@ -1,11 +1,35 @@
 #include <tee_internal_api.h>
 #include <tee_internal_api_extensions.h>
 
+#include <inttypes.h>
 #include <string.h>
 
 #include <pta_attestation.h>
 #include <pta_remote_attestation.h>
 #include <remote_attestation_ta.h>
+
+#ifdef CFG_REMOTE_ATTESTATION_PERF
+/*
+ * Performance measurement logging (CFG_REMOTE_ATTESTATION_PERF=y).
+ * User TAs have no access to a high-resolution counter, so TA-level
+ * durations come from TEE_GetSystemTime and are accurate to ~1 ms only.
+ * Reported in microseconds for consistency with the PTA/host log lines:
+ *   RA_PERF|ta|<event>|<duration_us>|key=<embedded|plain|black>
+ */
+static uint64_t ra_perf_now_us(void) {
+    TEE_Time t = {};
+
+    TEE_GetSystemTime(&t);
+    return ((uint64_t)t.seconds * 1000 + t.millis) * 1000;
+}
+
+/* packed_key_len is the params[2] size: PubX(32) || PubY(32) || blob(N) */
+static const char *ra_perf_keymode(size_t packed_key_len) {
+    if (packed_key_len == 0)
+        return "embedded";
+    return packed_key_len > 96 ? "black" : "plain";
+}
+#endif
 
 TEE_Result call_pta_for_cbor_evidence(uint32_t param_types,
                                       TEE_Param params[4]) {
@@ -18,6 +42,16 @@ TEE_Result call_pta_for_cbor_evidence(uint32_t param_types,
     uint8_t *key_buf = NULL;
     size_t nonce_len = 0;
     size_t out_len = 0;
+
+#ifdef CFG_REMOTE_ATTESTATION_PERF
+    uint64_t perf_cmd_start = ra_perf_now_us();
+    uint64_t perf_invoke_start = 0;
+    uint64_t perf_invoke_us = 0;
+    const char *perf_keymode = "embedded";
+
+    if (TEE_PARAM_TYPE_GET(param_types, 2) == TEE_PARAM_TYPE_MEMREF_INPUT)
+        perf_keymode = ra_perf_keymode(params[2].memref.size);
+#endif
 
     res = TEE_OpenTASession(&att_uuid, TEE_TIMEOUT_INFINITE, 0, NULL, &sess,
                             &ret_orig);
@@ -119,9 +153,15 @@ TEE_Result call_pta_for_cbor_evidence(uint32_t param_types,
                                           TEE_PARAM_TYPE_NONE);
     }
 
+#ifdef CFG_REMOTE_ATTESTATION_PERF
+    perf_invoke_start = ra_perf_now_us();
+#endif
     res = TEE_InvokeTACommand(sess, TEE_TIMEOUT_INFINITE,
                               PTA_REMOTE_ATTESTATION_GET_CBOR_EVIDENCE,
                               pta_param_types, pta_params, &ret_orig);
+#ifdef CFG_REMOTE_ATTESTATION_PERF
+    perf_invoke_us = ra_perf_now_us() - perf_invoke_start;
+#endif
     if (res != TEE_SUCCESS) {
         EMSG("TEE_InvokeTACommand failed\n");
         goto cleanup_return;
@@ -142,6 +182,17 @@ cleanup_return:
     if (nonce_buf)
         TEE_Free(nonce_buf);
     TEE_CloseTASession(sess);
+#ifdef CFG_REMOTE_ATTESTATION_PERF
+    /* Durations measured before printing; ~1 ms resolution (see above) */
+    if (perf_invoke_us) {
+        uint64_t perf_cmd_us = ra_perf_now_us() - perf_cmd_start;
+
+        IMSG("RA_PERF|ta|pta_invoke|%" PRIu64 "|key=%s", perf_invoke_us,
+             perf_keymode);
+        IMSG("RA_PERF|ta|cmd_total|%" PRIu64 "|key=%s", perf_cmd_us,
+             perf_keymode);
+    }
+#endif
     return res;
 }
 

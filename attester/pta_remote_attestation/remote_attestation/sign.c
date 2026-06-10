@@ -1,3 +1,4 @@
+#include "perf.h"
 #include "sign.h"
 #include <crypto/crypto.h>
 #include <crypto/crypto_impl.h>
@@ -59,6 +60,10 @@ TEE_Result sign_ecdsa_sha256(const uint8_t *msg, size_t msg_len, uint8_t *sig,
     const uint8_t public_key_x[] = {PUBLIC_KEY_X};
     const uint8_t public_key_y[] = {PUBLIC_KEY_Y};
 
+    RA_PERF_DECL(t);
+
+    RA_PERF_START(t);
+
     /* Allocate the key pair */
     key = calloc(1, sizeof(*key));
     if (key == NULL) {
@@ -112,19 +117,32 @@ TEE_Result sign_ecdsa_sha256(const uint8_t *msg, size_t msg_len, uint8_t *sig,
         }
     }
 
+    RA_PERF_STOP(t, "sign_key_setup",
+                 ra_perf_keymode(serialized_black_key,
+                                 serialized_black_key_len));
+
     /* Hash the msg */
+    RA_PERF_START(t);
     res = hash_sha256(msg, msg_len, hash_msg);
     if (res != TEE_SUCCESS)
         goto free_pubkey;
+    RA_PERF_STOP(t, "sign_tbs_hash",
+                 ra_perf_keymode(serialized_black_key,
+                                 serialized_black_key_len));
 
     /* Sign the hashed msg by the key pair */
+    RA_PERF_START(t);
     res = crypto_acipher_ecc_sign(TEE_ALG_ECDSA_SHA256, key, hash_msg,
                                   TEE_SHA256_HASH_SIZE, sig, sig_len);
     if (res != TEE_SUCCESS)
         goto free_pubkey;
+    RA_PERF_STOP(t, "sign_ecdsa",
+                 ra_perf_keymode(serialized_black_key,
+                                 serialized_black_key_len));
 
     /* Verify the signature if we have the public key */
     if (pubkey) {
+        RA_PERF_START(t);
         res = crypto_acipher_ecc_verify(TEE_ALG_ECDSA_SHA256, pubkey, hash_msg,
                                         TEE_SHA256_HASH_SIZE, sig, *sig_len);
         if (res == TEE_SUCCESS) {
@@ -134,6 +152,9 @@ TEE_Result sign_ecdsa_sha256(const uint8_t *msg, size_t msg_len, uint8_t *sig,
         }
         /* Reset res to success even if verify fails - we still signed */
         res = TEE_SUCCESS;
+        RA_PERF_STOP(t, "sign_verify",
+                     ra_perf_keymode(serialized_black_key,
+                                     serialized_black_key_len));
     }
 
 free_pubkey:
