@@ -807,5 +807,17 @@ optee_remote_attestation --key-hex <BlackKey hex> --pubx-hex <PubX hex> --puby-h
 
 期待される結果: `"ear.status": "affirming"`
 
+## 性能計測ログ (RA_PERF)
+
+アテステーション処理全体の時間と主要イベント(メモリハッシュ、CBOR/COSE
+エンコード、ECDSA/CAAM 署名、ブラックキー処理)ごとの所要時間を、機械可読な
+ログ(`RA_PERF|<layer>|<event>|<duration_us>|key=<keymode>`)として出力でき
+ます。ファームウェア側は `CFG_REMOTE_ATTESTATION_PERF=y` でコンパイルし、
+クライアント側は実行時に `optee_remote_attestation --perf`(データ収集用に
+`--loop N` / `--no-server` も利用可)で有効化します。ログポイント一覧、
+QEMU/i.MX での有効化手順、CAAM ブラックキー使用有無の比較を含む推奨計測
+プロトコルは [docs/performance-measurement-j.md](docs/performance-measurement-j.md)
+を参照してください。
+
 ## 謝辞
 研究は、JST、CREST、JPMJCR21M3 ([Zero Trust IoT プロジェクト](https://zt-iot.nii.ac.jp/)) の支援を受けたものです。

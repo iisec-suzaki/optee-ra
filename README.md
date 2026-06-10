@@ -868,6 +868,18 @@ optee_remote_attestation --key-hex <BlackKey hex> --pubx-hex <PubX hex> --puby-h
 
 Expected result: `"ear.status": "affirming"`
 
+## Performance Measurement Logging (RA_PERF)
+
+The attestation stack can emit machine-parsable timing logs
+(`RA_PERF|<layer>|<event>|<duration_us>|key=<keymode>`) covering the total
+attestation time and each major event (memory hashing, CBOR/COSE encoding,
+ECDSA/CAAM signing, black-key processing). The firmware side is compiled in
+with `CFG_REMOTE_ATTESTATION_PERF=y`; the client side is enabled at runtime
+with `optee_remote_attestation --perf` (plus `--loop N` / `--no-server` for
+data collection). See [docs/performance-measurement.md](docs/performance-measurement.md)
+for the log-point list, how to enable it on QEMU/i.MX, and the recommended
+measurement protocol including the CAAM black-key on/off comparison.
+
 ## Acknowlegement
 
 This work was supported by JST, CREST Grant Number JPMJCR21M3 ([ZeroTrust IoT Project](https://zt-iot.nii.ac.jp/en/)), Japan.
