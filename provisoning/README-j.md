@@ -86,3 +86,24 @@ veraison clear-stores
 ```
 
 引数を省略した場合は `qemu` が使われます。
+
+## 参照値のオフライン計算
+
+`data/comid-psa-refval-*.json` に登録する `measurement-value` のダイジェストは、
+ビルド成果物から直接計算できます。イメージの起動やデバッグログの取得は不要です
+(i.MX の本番ビルドはコアログレベルが 0 のため、オフライン計算が唯一の取得手段です):
+
+```sh
+# ARoT(TA の測定値): 署名済み .ta または TA の ELF を渡す
+./compute-arot-refval.py path/to/<uuid>.ta
+
+# PRoT(OP-TEE OS の測定値): コアの ELF を渡す
+./compute-prot-refval.py path/to/tee.elf
+```
+
+それぞれ、対応する measurement に記載する `sha-256;<base64>` ダイジェストを
+出力します。どちらも QEMU 上で、PTA が出力する実行時測定値と一致することを
+検証済みです。PRoT の値はビルド固有(OP-TEE がビルド日時をハッシュ対象の
+`.rodata` に埋め込むため)なので、リリースビルドごとに再計算・再登録して
+ください。ARoT の値は TA バイナリが変わったときだけ変わります。
+`pyelftools` が必要です(`pip install pyelftools`)。

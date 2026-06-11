@@ -470,7 +470,22 @@ Sourced Data [contraindicated]: Cryptographic validation of the Evidence has fai
 
 #### 6.2. Registering a New TA with Provisioning
 
-First, check the code hash value of the new TA. Currently, when a request to generate evidence is sent to the PTA, the code hash value is output to the secure terminal for debugging purposes. Specifically, there is a line like the one below, where `gw9v98IV8ozl5nHpsMwl9W5nGGC0bzAYMPShwvff0vY=` is the base64 encoded value of the code hash.
+First, check the code hash value of the new TA. The recommended way is to
+compute it **offline from the build artifact** with
+[provisoning/compute-arot-refval.py](provisoning/compute-arot-refval.py)
+(pass the new TA's `.ta` file or its ELF) — no run is required:
+
+```bash
+./provisoning/compute-arot-refval.py path/to/<uuid>.ta
+```
+
+Alternatively, on debug builds the same value can be captured from a run:
+when a request to generate evidence is sent to the PTA, the code hash value
+is output to the secure terminal for debugging purposes, in a line like the
+one below, where `gw9v98IV8ozl5nHpsMwl9W5nGGC0bzAYMPShwvff0vY=` is the base64
+encoded value of the code hash. (Note this debug output is unavailable on
+i.MX production builds, where the core log level is 0 — use the offline
+script there.)
 
 ```txt
 D/TC:? 0 cmd_get_cbor_evidence:82 b64_measurement_value: gw9v98IV8ozl5nHpsMwl9W5nGGC0bzAYMPShwvff0vY=

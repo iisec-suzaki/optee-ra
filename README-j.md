@@ -420,7 +420,20 @@ Sourced Data [contraindicated]: Cryptographic validation of the Evidence has fai
 
 #### 6.2. provisioning で新たな TA を登録する
 
-はじめに、新たな TA のコードハッシュ値を確認します。現在、PTA に evidence 生成リクエストを送ると、secure terminal にコードハッシュ値がデバッグ用に出力される実装になっています。具体的には以下のような一行があり、`gw9v98IV8ozl5nHpsMwl9W5nGGC0bzAYMPShwvff0vY=` がコードハッシュ値を base64 エンコードした値です。
+はじめに、新たな TA のコードハッシュ値を確認します。推奨は、ビルド成果物から
+[provisoning/compute-arot-refval.py](provisoning/compute-arot-refval.py)
+で**オフライン計算**する方法です(新しい TA の `.ta` ファイルまたは ELF を渡します。実行は不要です):
+
+```bash
+./provisoning/compute-arot-refval.py path/to/<uuid>.ta
+```
+
+別の方法として、デバッグビルドでは実行時の出力からも取得できます。PTA に
+evidence 生成リクエストを送ると、secure terminal にコードハッシュ値がデバッグ用に
+出力されます。具体的には以下のような一行があり、`gw9v98IV8ozl5nHpsMwl9W5nGGC0bzAYMPShwvff0vY=`
+がコードハッシュ値を base64 エンコードした値です。(注意: i.MX の本番ビルドは
+コアログレベルが 0 のためこのデバッグ出力は得られません。実機ではオフライン計算を
+使ってください。)
 ```txt
 D/TC:? 0 cmd_get_cbor_evidence:82 b64_measurement_value: gw9v98IV8ozl5nHpsMwl9W5nGGC0bzAYMPShwvff0vY=
 ```
