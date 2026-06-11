@@ -371,14 +371,30 @@ Sourced Data [none]: The Evidence received is insufficient to make a conclusion.
 > reports the **OP-TEE OS version** in its `version` field (e.g. `"4.6.0"`), as
 > shown above.
 >
-> The OP-TEE OS is identified by the stable `version` field. Its
-> `measurement-value` is a runtime hash of the immutable core (`.text` +
-> `.rodata`) and is **not** registered as a reference value: that hash is
-> build-specific (OP-TEE embeds the build timestamp in `core_v_str`, which is
-> part of the hashed `.rodata`), so it changes on every build. OS integrity is
-> rooted in secure boot (HAB/SRK on i.MX 8M Plus). Because no `PRoT` reference
-> value is provisioned, the verifier ignores this component for matching and
-> `ear.status` remains `affirming`.
+> The `measurement-value` is a runtime hash of the immutable core (`.text` +
+> `.rodata`). It is **build-specific** (OP-TEE embeds the build timestamp in
+> `core_v_str`, which is part of the hashed `.rodata`), so it changes whenever
+> the OP-TEE OS is rebuilt — and the `PRoT` reference value therefore has to
+> be (re-)registered for every released build. Compute it offline from the
+> build artifact with
+> [provisoning/compute-prot-refval.py](provisoning/compute-prot-refval.py)
+> (no need to boot the image or raise the core log level):
+>
+> ```bash
+> ./provisoning/compute-prot-refval.py path/to/tee.elf
+> ```
+>
+> Put the printed `sha-256;...` digest into the `PRoT` measurement of
+> `provisoning/data/comid-psa-refval-*.json` before provisioning. With the
+> reference value registered the verifier checks the `PRoT` component like
+> any other: a matching build keeps `ear.status` `affirming`, while a
+> different OP-TEE build (or modified code) is flagged as `warning`. If no
+> `PRoT` reference value is provisioned, the verifier ignores the component
+> and `ear.status` is decided by the other components alone. Note: Yocto
+> builds are reproducible (`SOURCE_DATE_EPOCH` is set and the build counter
+> resets on clean builds), so rebuilding identical source does not change the
+> reference value; QEMU container builds are not reproducible and need a
+> fresh value per build.
 
 
 ### 6. Scenario for Sending Attestation Requests from Different TAs
