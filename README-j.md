@@ -347,7 +347,10 @@ Sourced Data [none]: The Evidence received is insufficient to make a conclusion.
 > 無視され、`ear.status` は他のコンポーネントだけで決まります。なお Yocto
 > ビルドは再現可能(`SOURCE_DATE_EPOCH` 設定済み・クリーンビルドでビルドカウンタ
 > がリセット)なので、同一ソースの再ビルドで参照値は変わりません。QEMU コンテナ
-> ビルドは非再現のため、ビルドごとに値の取り直しが必要です。
+> ビルドは非再現のため、ビルドごとに値の取り直しが必要です。`ARoT` の参照値も
+> 同様に、初回実行からの取得ではなく
+> [provisoning/compute-arot-refval.py](provisoning/compute-arot-refval.py)
+> (`.ta` または TA の ELF を渡す)でビルド成果物からオフライン計算できます。
 
 ### 6. 異なる TA からアテステーションリクエストを送信するシナリオ
 

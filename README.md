@@ -394,7 +394,10 @@ Sourced Data [none]: The Evidence received is insufficient to make a conclusion.
 > builds are reproducible (`SOURCE_DATE_EPOCH` is set and the build counter
 > resets on clean builds), so rebuilding identical source does not change the
 > reference value; QEMU container builds are not reproducible and need a
-> fresh value per build.
+> fresh value per build. The `ARoT` reference value can likewise be computed
+> offline from the built TA with
+> [provisoning/compute-arot-refval.py](provisoning/compute-arot-refval.py)
+> (pass the `.ta` or the TA ELF), instead of capturing it from a first run.
 
 
 ### 6. Scenario for Sending Attestation Requests from Different TAs
