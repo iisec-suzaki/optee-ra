@@ -121,8 +121,20 @@ optee_remote_attestation --perf          # または RA_PERF=1 optee_remote_atte
 
 ## 推奨計測プロトコル
 
-1. 環境を固定して記録する: ボード(i.MX8MPEVK)、CPU クロック/ガバナ、
-   ビルド設定、`cntfrq` 行、ソフトウェアのバージョン、N。
+1. 環境を固定して記録する: ボード(i.MX8MPEVK)、ビルド設定、`cntfrq` 行、
+   ソフトウェアのバージョン、N。sub-ms のイベント(署名・ハッシュ)は DVFS で
+   ぶれるので、**CPU ガバナを固定し実クロックを記録**する:
+
+   ```bash
+   for g in /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor; do
+     echo performance > "$g" 2>/dev/null
+   done
+   cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor
+   cat /sys/devices/system/cpu/cpu*/cpufreq/scaling_cur_freq
+   ```
+
+   固定できない場合も、`scaling_governor` と `scaling_cur_freq` を読み取って
+   記録すれば、後で DVFS による変動幅を論文で明示できる。
 2. 設定ごとに 30 回以上繰り返し、初回(コールドキャッシュ・初回 TA ロード)
    は除外する:
 
@@ -150,6 +162,13 @@ grep -h -o 'RA_PERF|.*' serial1.log host-*.log | awk -F'|' '
   END { for (i in n) printf "%-44s n=%-3d mean=%10.1f min=%8d max=%8d\n",
         i, n[i], s[i]/n[i], min[i], max[i] }' | sort
 ```
+
+この one-liner は**全イテレーションを集計**するため、`n` には手順 2 で除外
+すべき初回(コールド)実行が含まれる。出力は「未トリム(n=N)」として扱うか、
+集計前に各 `layer|event|keymode` の先頭 1 件を落とすこと(生ログはイテレーション
+順を保持しているので `tail -n +2` 相当でトリム可)。なお `teec_init` /
+`teec_open_session` はループ前に 1 回だけ計測されるので、各イテレーションの
+集計には元々含まれない。
 
 ## CAAM 署名のブラックキー使用有無の比較
 

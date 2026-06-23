@@ -122,8 +122,20 @@ Additional client options for data collection:
 
 ## Recommended measurement protocol
 
-1. Fix the environment and record it: board (i.MX8MPEVK), governor/CPU clock,
-   build config, `cntfrq` line, software versions, N.
+1. Fix the environment and record it: board (i.MX8MPEVK), build config,
+   `cntfrq` line, software versions, N. Pin the CPU governor and record the
+   actual frequency — the sub-ms events (signing, hashing) swing with DVFS:
+
+   ```bash
+   for g in /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor; do
+     echo performance > "$g" 2>/dev/null
+   done
+   cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor
+   cat /sys/devices/system/cpu/cpu*/cpufreq/scaling_cur_freq
+   ```
+
+   If pinning is not possible, at least read and record `scaling_governor`
+   and `scaling_cur_freq` so the DVFS-induced variance can be bounded.
 2. Collect ≥ 30 iterations per configuration and discard the first iteration
    (cold caches, first TA load):
 
@@ -151,6 +163,13 @@ grep -h -o 'RA_PERF|.*' serial1.log host-*.log | awk -F'|' '
   END { for (i in n) printf "%-44s n=%-3d mean=%10.1f min=%8d max=%8d\n",
         i, n[i], s[i]/n[i], min[i], max[i] }' | sort
 ```
+
+This one-liner aggregates **all** iterations, so its `n` includes the cold
+first iteration that step 2 says to discard. Either treat its output as
+"untrimmed (n=N)" or drop the first occurrence per `layer|event|keymode`
+before aggregating (the raw log preserves iteration order, so `tail -n +2`
+per event works). Note `teec_init`/`teec_open_session` are measured once
+before the loop, so they are already outside the per-iteration aggregates.
 
 ## Comparing CAAM signing with and without the black key
 
