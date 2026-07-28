@@ -21,18 +21,23 @@ Application として動かす Yocto イメージのビルド方法と、Linux �
 | ファイル | 目的 |
 |----------|------|
 | `recipes-security/optee-ftpm/optee-ftpm_%.bbappend` | `imx8mpevk` を許可(`COMPATIBLE_MACHINE`)し、TA を AArch64 でビルド |
-| `recipes-kernel/linux/linux-imx_%.bbappend` + `linux-imx/ftpm.cfg` | i.MX カーネルで `CONFIG_TCG_FTPM_TEE=m` を有効化 |
+| `recipes-kernel/linux/linux-imx_%.bbappend` + `linux-imx/ftpm.cfg` | i.MX カーネルで `CONFIG_TCG_FTPM_TEE=m` を有効化(マシンフィーチャ `optee-ftpm` 設定時のみ) |
 
 ## fTPM の有効化
 
-通常のアテステーション設定に加えて `conf/local.conf` に以下を追加します:
+通常のアテステーション設定に加えて `conf/local.conf`(ホスト上のパスは
+`${YOCTO_DIR}/build/conf/local.conf`)に以下を追加します:
 
 ```
 MACHINE_FEATURES:append = " optee-ftpm"
 IMAGE_INSTALL:append = " optee-ftpm tpm2-tools kernel-module-tpm-ftpm-tee"
 ```
 
-その後リビルドします。fTPM は OP-TEE OS バイナリに組み込まれるため、
+その後リビルドします。以下の `bitbake` コマンドは `yocto.sh` のビルド
+コンテナ内で実行されるものです。一度ビルド済みであれば、`local.conf` を
+編集して `YOCTO_DIR=... ./yocto.sh full` を再実行すれば同じ流れが走ります
+(`yocto.sh` 自身の設定追記は grep ガード付きのため、この編集を上書き
+しません)。fTPM は OP-TEE OS バイナリに組み込まれるため、
 `optee-os` 変更後は `imx-boot` の再生成とイメージの再パックが必要です
 (`yocto.sh full` と同じ流れ):
 
@@ -68,5 +73,6 @@ tpm2_pcrread                   # PCR バンク
   fTPM の PCR へ計測値を extend する仕組みはなく、PCR はリセット値のまま
   始まります。IMA やブート計測のルートとして使うには追加の統合が必要です。
 * フィーチャ有効時、`meta-arm` の bbappend が `CFG_CORE_HEAP_SIZE` を
-  128 KiB に引き上げます(fTPM はデフォルトより多くの TEE コアヒープを
-  必要とするため)。
+  128 KiB に固定します(fTPM は OP-TEE 汎用デフォルトの 64 KiB より多くの
+  TEE コアヒープを必要とするため)。i.MX では NXP ツリーが元々全 i.MX
+  プラットフォームを 128 KiB にしているため、実質的な変化はありません。

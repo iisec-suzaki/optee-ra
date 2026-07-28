@@ -20,18 +20,22 @@ adds two bbappends:
 | File | Purpose |
 |------|---------|
 | `recipes-security/optee-ftpm/optee-ftpm_%.bbappend` | Allow `imx8mpevk` (`COMPATIBLE_MACHINE`) and build the TA as AArch64 |
-| `recipes-kernel/linux/linux-imx_%.bbappend` + `linux-imx/ftpm.cfg` | Enable `CONFIG_TCG_FTPM_TEE=m` in the i.MX kernel |
+| `recipes-kernel/linux/linux-imx_%.bbappend` + `linux-imx/ftpm.cfg` | Enable `CONFIG_TCG_FTPM_TEE=m` in the i.MX kernel (only when the `optee-ftpm` machine feature is set) |
 
 ## Enabling the fTPM
 
-Add to `conf/local.conf` (on top of the normal attestation configuration):
+Add to `conf/local.conf` (on top of the normal attestation configuration —
+the file lives at `${YOCTO_DIR}/build/conf/local.conf` on the host):
 
 ```
 MACHINE_FEATURES:append = " optee-ftpm"
 IMAGE_INSTALL:append = " optee-ftpm tpm2-tools kernel-module-tpm-ftpm-tee"
 ```
 
-Then rebuild. Because the fTPM is embedded into the OP-TEE OS binary,
+Then rebuild. The `bitbake` commands below run inside the `yocto.sh` build
+container; if you have built before, editing `local.conf` and re-running
+`YOCTO_DIR=... ./yocto.sh full` performs the same sequence (its own config
+appends are grep-guarded and will not clobber these edits). Because the fTPM is embedded into the OP-TEE OS binary,
 `imx-boot` must be regenerated after `optee-os` changes, and the image
 repacked (the same sequence `yocto.sh full` uses):
 
@@ -66,6 +70,7 @@ tpm2_pcrread                   # PCR banks
 * **Not a measured-boot root**: nothing measures into the fTPM PCRs during
   boot on this platform; PCRs start at their reset values. Using the fTPM
   with IMA or as a boot-measurement root requires additional integration.
-* `CFG_CORE_HEAP_SIZE` is raised to 128 KiB by the `meta-arm` bbappend when
-  the feature is enabled — the fTPM needs more TEE core heap than the
-  default.
+* With the feature enabled, the `meta-arm` bbappend pins `CFG_CORE_HEAP_SIZE`
+  to 128 KiB — the fTPM needs more TEE core heap than OP-TEE's generic
+  64 KiB default. On i.MX this is a no-op: the NXP tree already defaults all
+  i.MX platforms to 128 KiB.
