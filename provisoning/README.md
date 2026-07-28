@@ -85,9 +85,14 @@ You can automatically execute the above steps by running the following command.
 ./run.sh qemu
 # i.MX 8M Plus
 ./run.sh imx
+# i.MX 8M Plus per-build variants (CAAM vs CPU signing comparison,
+# see docs/performance-measurement.md)
+./run.sh imx-caam
+./run.sh imx-cpu
 ```
 
-If you omit the argument, `qemu` is used.
+If you omit the argument, `qemu` is used. Each environment name maps to a
+`data/comid-psa-refval-<env>.json` / `data/comid-psa-ta-<env>.json` pair.
 
 ## Computing the Reference Values Offline
 

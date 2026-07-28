@@ -6,13 +6,15 @@ VERAISON=${THIS_DIR}/../services/deployments/docker/veraison
 
 source ${THIS_DIR}/../services/deployments/docker/env.bash
 
-# Select environment: qemu (default) or imx
+# Select environment: qemu (default), imx, or a per-build variant such as
+# imx-caam / imx-cpu (any name with a data/comid-psa-{refval,ta}-<env>.json pair)
 ENV=${1:-qemu}
 REFVAL_FILE="${THIS_DIR}/data/comid-psa-refval-${ENV}.json"
 TA_FILE="${THIS_DIR}/data/comid-psa-ta-${ENV}.json"
 
 if [[ ! -f "$REFVAL_FILE" ]] || [[ ! -f "$TA_FILE" ]]; then
-    echo "Error: Unknown environment '$ENV'. Use 'qemu' or 'imx'."
+    echo "Error: Unknown environment '$ENV'. Available:"
+    ls "${THIS_DIR}"/data/comid-psa-refval-*.json | sed 's/.*comid-psa-refval-\(.*\)\.json/  \1/'
     exit 1
 fi
 
