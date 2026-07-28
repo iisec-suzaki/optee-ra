@@ -70,11 +70,10 @@ virt: 約 62.5 MHz)。
 | `hash_ta`          | ARoT 計測値: 呼び出し元 TA の読み取り専用メモリの SHA-256                     |
 | `hash_tee`         | PRoT 計測値: OP-TEE コア `.text` + `.rodata` の SHA-256                       |
 | `cbor_encode`      | PSA クレームの QCBOR エンコード                                               |
-| `sign_key_setup`   | 署名鍵の確保とインポート(ブラックキー blob または組込み鍵 + 公開鍵)         |
+| `sign_key_setup`   | 署名鍵の確保とインポート(ブラックキー blob または組込み鍵)                  |
 | `sign_tbs_hash`    | COSE 署名対象(TBS)の SHA-256                                                |
 | `sign_ecdsa`       | `crypto_acipher_ecc_sign` — **ブラックキー比較用ブラケット**(後述)          |
-| `sign_verify`      | 署名のセルフチェック検証(組込み鍵パスのみ)                                  |
-| `cose_sign1`       | COSE_Sign1 生成全体(上記 `sign_*` 4 イベントを含む)                         |
+| `cose_sign1`       | COSE_Sign1 生成全体(上記 `sign_*` 3 イベントを含む)                         |
 | `cmd_total`        | `GET_CBOR_EVIDENCE` PTA コマンド全体                                          |
 | `perf_flush`       | バッファした RA_PERF 行の出力自体のコスト(注意事項参照)                     |
 | `keypair_generate` | `crypto_acipher_gen_ecc_key`(i.MX では CAAM 鍵生成)。`--generate-blackkey` 1 回につき 2 回記録(サイズ確認 + 取得) |
@@ -187,9 +186,7 @@ grep -h -o 'RA_PERF|.*' serial1.log host-*.log | awk -F'|' '
   デカプセル化とエンジン内 CCM 鍵インポートのコストを払うため、この差分が
   まさに比較で分離したい量になります。(QEMU 実行はソフトウェア署名のみの
   第 3 のデータ点になります。)
-* `sign_verify` は組込み鍵パス**のみ**で実行されます(署名のセルフチェック)。
-  比較にバイアスを与えないよう別イベントとして計測しています。ブラックキー
-  差分の評価に `cose_sign1` や `cmd_total` を使わないでください。
+* ブラックキー差分の評価に `cose_sign1` や `cmd_total` を使わないでください。
 
 > **セキュリティに関する注意。** ブラックキーを使わない場合、署名鍵は
 > OP-TEE 内で平文として扱われ(組込みテストキーの場合はバイナリにも含まれ)、

@@ -46,7 +46,6 @@ The key information has been extracted using the command:
 static TEE_Result hash_sha256(const uint8_t *msg, size_t msg_len,
                               uint8_t *hash);
 static void free_keypair(struct ecc_keypair *keypair);
-static void free_pubkey(struct ecc_public_key *pk);
 
 TEE_Result sign_ecdsa_sha256(const uint8_t *msg, size_t msg_len, uint8_t *sig,
                              size_t *sig_len,
@@ -55,10 +54,7 @@ TEE_Result sign_ecdsa_sha256(const uint8_t *msg, size_t msg_len, uint8_t *sig,
     TEE_Result res = TEE_SUCCESS;
     uint8_t hash_msg[TEE_SHA256_HASH_SIZE];
     struct ecc_keypair *key = NULL;
-    struct ecc_public_key *pubkey = NULL;
     const uint8_t private_key[] = {PRIVATE_KEY};
-    const uint8_t public_key_x[] = {PUBLIC_KEY_X};
-    const uint8_t public_key_y[] = {PUBLIC_KEY_Y};
 
     RA_PERF_DECL(t);
 
@@ -91,30 +87,6 @@ TEE_Result sign_ecdsa_sha256(const uint8_t *msg, size_t msg_len, uint8_t *sig,
         if (res != TEE_SUCCESS) {
             goto free_key;
         }
-
-        /* Allocate a public key storage for verification */
-        pubkey = calloc(1, sizeof(*pubkey));
-        if (pubkey == NULL) {
-            res = TEE_ERROR_OUT_OF_MEMORY;
-            goto free_key;
-        }
-
-        res = crypto_acipher_alloc_ecc_public_key(pubkey, TEE_TYPE_ECDSA_PUBLIC_KEY,
-                                                  KEY_SIZE_BIT);
-        if (res != TEE_SUCCESS) {
-            goto free_pubkey;
-        }
-        pubkey->curve = TEE_ECC_CURVE_NIST_P256;
-
-        /* Copy the public key */
-        res = crypto_bignum_bin2bn(public_key_x, KEY_SIZE, pubkey->x);
-        if (res != TEE_SUCCESS) {
-            goto free_pubkey;
-        }
-        res = crypto_bignum_bin2bn(public_key_y, KEY_SIZE, pubkey->y);
-        if (res != TEE_SUCCESS) {
-            goto free_pubkey;
-        }
     }
 
     RA_PERF_STOP(t, "sign_key_setup",
@@ -125,7 +97,7 @@ TEE_Result sign_ecdsa_sha256(const uint8_t *msg, size_t msg_len, uint8_t *sig,
     RA_PERF_START(t);
     res = hash_sha256(msg, msg_len, hash_msg);
     if (res != TEE_SUCCESS)
-        goto free_pubkey;
+        goto free_key;
     RA_PERF_STOP(t, "sign_tbs_hash",
                  ra_perf_keymode(serialized_black_key,
                                  serialized_black_key_len));
@@ -135,31 +107,11 @@ TEE_Result sign_ecdsa_sha256(const uint8_t *msg, size_t msg_len, uint8_t *sig,
     res = crypto_acipher_ecc_sign(TEE_ALG_ECDSA_SHA256, key, hash_msg,
                                   TEE_SHA256_HASH_SIZE, sig, sig_len);
     if (res != TEE_SUCCESS)
-        goto free_pubkey;
+        goto free_key;
     RA_PERF_STOP(t, "sign_ecdsa",
                  ra_perf_keymode(serialized_black_key,
                                  serialized_black_key_len));
 
-    /* Verify the signature if we have the public key */
-    if (pubkey) {
-        RA_PERF_START(t);
-        res = crypto_acipher_ecc_verify(TEE_ALG_ECDSA_SHA256, pubkey, hash_msg,
-                                        TEE_SHA256_HASH_SIZE, sig, *sig_len);
-        if (res == TEE_SUCCESS) {
-            DMSG("Success to verify");
-        } else {
-            DMSG("Failed to verify");
-        }
-        /* Reset res to success even if verify fails - we still signed */
-        res = TEE_SUCCESS;
-        RA_PERF_STOP(t, "sign_verify",
-                     ra_perf_keymode(serialized_black_key,
-                                     serialized_black_key_len));
-    }
-
-free_pubkey:
-    if (pubkey)
-        free_pubkey(pubkey);
 free_key:
     if (key)
         free_keypair(key);
@@ -201,19 +153,6 @@ static void free_keypair(struct ecc_keypair *keypair) {
 
     memset(keypair, 0, sizeof(*keypair));
     free(keypair);
-}
-
-static void free_pubkey(struct ecc_public_key *pk) {
-    if (!pk)
-        return;
-
-    if (pk->x)
-        crypto_bignum_free(&pk->x);
-    if (pk->y)
-        crypto_bignum_free(&pk->y);
-
-    memset(pk, 0, sizeof(*pk));
-    free(pk);
 }
 
 /*

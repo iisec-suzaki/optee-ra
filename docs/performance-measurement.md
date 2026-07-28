@@ -71,11 +71,10 @@ involved. The PTA reports the counter frequency once per run as the
 | `hash_ta`          | ARoT measurement: SHA-256 over the calling TA's read-only memory              |
 | `hash_tee`         | PRoT measurement: SHA-256 over the OP-TEE core `.text` + `.rodata`            |
 | `cbor_encode`      | QCBOR encoding of the PSA claims                                              |
-| `sign_key_setup`   | Signing key allocation and import (black-key blob or embedded key + pubkey)   |
+| `sign_key_setup`   | Signing key allocation and import (black-key blob or embedded key)            |
 | `sign_tbs_hash`    | SHA-256 of the COSE to-be-signed structure                                    |
 | `sign_ecdsa`       | `crypto_acipher_ecc_sign` — **the black-key comparison bracket** (see below)  |
-| `sign_verify`      | Self-check `crypto_acipher_ecc_verify` (embedded-key path only)               |
-| `cose_sign1`       | Whole COSE_Sign1 generation (includes the four `sign_*` events)               |
+| `cose_sign1`       | Whole COSE_Sign1 generation (includes the three `sign_*` events)              |
 | `cmd_total`        | Whole `GET_CBOR_EVIDENCE` PTA command                                         |
 | `perf_flush`       | Cost of printing the buffered RA_PERF lines themselves (see Caveats)          |
 | `keypair_generate` | `crypto_acipher_gen_ecc_key` (CAAM keygen on i.MX); logged twice per `--generate-blackkey` (size probe + fetch) |
@@ -187,9 +186,7 @@ Compare the `pta|sign_ecdsa` event only:
   on the CAAM hardware; the black-key path additionally pays the key-blob
   decapsulation and in-engine CCM key import, which is exactly the delta the
   comparison isolates. (A QEMU run provides a third, software-only datapoint.)
-* `sign_verify` runs **only** on the embedded-key path (signature self-check);
-  it is reported separately precisely so that it does not bias the comparison.
-  Do not use `cose_sign1` or `cmd_total` for the black-key delta.
+* Do not use `cose_sign1` or `cmd_total` for the black-key delta.
 
 > **Security note.** Running without the black key means the signing key is
 > handled as plaintext inside OP-TEE (and, for the embedded test key, is part
