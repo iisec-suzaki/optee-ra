@@ -95,6 +95,7 @@ set -x
 docker run --rm \
   --user 0:0 \
   -v "$YOCTO_DIR_ABS:/yocto" \
+  -v "$YOCTO_DIR_ABS:$YOCTO_DIR_ABS" \
   -v "$OUT_DIR_ABS:/out" \
   $CST_MOUNT_ARGS \
   -e CST_PASS="$CST_PASS" \
