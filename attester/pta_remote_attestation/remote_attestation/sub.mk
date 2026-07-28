@@ -9,7 +9,7 @@ srcs-$(CFG_REMOTE_ATTESTATION_PTA) += qcbor/ieee754.c
 srcs-$(CFG_REMOTE_ATTESTATION_PTA) += qcbor/UsefulBuf.c
 srcs-$(CFG_NXP_CAAM) += ocotp.c
 
-incdirs-$(CFG_NXP_CAAM_ECC_DRV) += ../../drivers/crypto/caam/include
+incdirs-$(CFG_NXP_CAAM) += ../../drivers/crypto/caam/include
 
 cflags-$(CFG_REMOTE_ATTESTATION_PTA) += -Wno-declaration-after-statement
 cflags-$(CFG_REMOTE_ATTESTATION_PTA) += -Wno-redundant-decls
