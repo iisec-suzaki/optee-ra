@@ -39,7 +39,21 @@
             },
             "value": {
               "digests": [
-                "sha-256;v0A0kWI5jq4tGIGZf+o4ujdq/udWwLgzfrOc2XOb13A="
+                "sha-256;FjIXXyuEaEG2FsLTRZjCck573aBBlnJT0sed9M9nRwA="
+              ]
+            }
+          },
+          {
+            "key": {
+              "type": "psa.refval-id",
+              "value": {
+                "label": "PRoT",
+                "signer-id": "427zIO3QE+zwfmqkGRPzdhocbmeEF9Bpn5Lk/mBzgf4="
+              }
+            },
+            "value": {
+              "digests": [
+                "sha-256;UsHZbTgZfIUT3ga7FuAaKn/PnGO2WgpvZp1eM2b82oY="
               ]
             }
           }

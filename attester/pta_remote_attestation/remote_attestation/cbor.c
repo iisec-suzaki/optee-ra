@@ -7,20 +7,16 @@ encode_evidence_to_cbor(const char *eat_profile, const int psa_client_id,
                         const int psa_security_lifecycle,
                         const uint8_t *psa_implementation_id,
                         size_t psa_implementation_id_len,
-                        const char *measurement_type, const uint8_t *signer_id,
-                        size_t signer_id_len, const uint8_t *psa_instance_id,
+                        const struct psa_sw_component *components,
+                        size_t num_components, const uint8_t *psa_instance_id,
                         size_t psa_instance_id_len, const uint8_t *psa_nonce,
-                        size_t psa_nonce_len, const uint8_t *measurement_value,
-                        size_t mv_len, UsefulBuf cbor_evidence_buffer) {
+                        size_t psa_nonce_len, UsefulBuf cbor_evidence_buffer) {
     /* prepare usefulbufs because qcbor only accepts them */
     UsefulBufC ubc_eat_profile = UsefulBuf_FromSZ(eat_profile);
     UsefulBufC ubc_psa_implementation_id = {psa_implementation_id,
                                             psa_implementation_id_len};
-    UsefulBufC ubc_measurement_type = UsefulBuf_FromSZ(measurement_type);
-    UsefulBufC ubc_signer_id = {signer_id, signer_id_len};
     UsefulBufC ubc_psa_instance_id = {psa_instance_id, psa_instance_id_len};
     UsefulBufC ubc_psa_nonce = {psa_nonce, psa_nonce_len};
-    UsefulBufC ubc_measurement_value = {measurement_value, mv_len};
 
     QCBOREncodeContext encode_ctx;
     QCBOREncode_Init(&encode_ctx, cbor_evidence_buffer);
@@ -44,14 +40,26 @@ encode_evidence_to_cbor(const char *eat_profile, const int psa_client_id,
 
     /* Software Components */
     QCBOREncode_OpenArrayInMapN(&encode_ctx, PSA_SW_COMPONENTS); /* [ */
-    QCBOREncode_OpenMap(&encode_ctx);                            /* { */
-    QCBOREncode_AddTextToMapN(&encode_ctx, PSA_SW_COMPONENT_MEASUREMENT_TYPE,
-                              ubc_measurement_type);
-    QCBOREncode_AddBytesToMapN(&encode_ctx, PSA_SW_COMPONENT_MEASUREMENT_VALUE,
-                               ubc_measurement_value);
-    QCBOREncode_AddBytesToMapN(&encode_ctx, PSA_SW_COMPONENT_SIGNER_ID,
-                               ubc_signer_id);
-    QCBOREncode_CloseMap(&encode_ctx);   /* } */
+    for (size_t i = 0; i < num_components; i++) {
+        const struct psa_sw_component *c = &components[i];
+        UsefulBufC ubc_measurement_value = {c->measurement_value,
+                                            c->measurement_value_len};
+        UsefulBufC ubc_signer_id = {c->signer_id, c->signer_id_len};
+
+        QCBOREncode_OpenMap(&encode_ctx);                        /* { */
+        QCBOREncode_AddTextToMapN(&encode_ctx,
+                                  PSA_SW_COMPONENT_MEASUREMENT_TYPE,
+                                  UsefulBuf_FromSZ(c->measurement_type));
+        QCBOREncode_AddBytesToMapN(&encode_ctx,
+                                   PSA_SW_COMPONENT_MEASUREMENT_VALUE,
+                                   ubc_measurement_value);
+        if (c->version)
+            QCBOREncode_AddTextToMapN(&encode_ctx, PSA_SW_COMPONENT_VERSION,
+                                      UsefulBuf_FromSZ(c->version));
+        QCBOREncode_AddBytesToMapN(&encode_ctx, PSA_SW_COMPONENT_SIGNER_ID,
+                                   ubc_signer_id);
+        QCBOREncode_CloseMap(&encode_ctx);                       /* } */
+    }
     QCBOREncode_CloseArray(&encode_ctx); /* ] */
 
     /* Nonce */

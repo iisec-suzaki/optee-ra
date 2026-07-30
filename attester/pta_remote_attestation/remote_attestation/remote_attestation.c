@@ -1,3 +1,4 @@
+#include <kernel/linker.h>
 #include <kernel/pseudo_ta.h>
 #include <pta_remote_attestation.h>
 
@@ -23,6 +24,8 @@
 
 #define EAT_PROFILE     "http://arm.com/psa/2.0.0"
 #define MEASURMENT_TYPE "ARoT"
+#define MEASUREMENT_TYPE_TEE_OS "PRoT"
+#define OS_VERSION_MAX_LEN      32
 #ifdef CFG_NXP_CAAM
 #define IMPLEMENTATION_ID     "imx8mp-optee-ra-0000000000000001"
 #else
@@ -107,7 +110,6 @@ static TEE_Result cmd_get_cbor_evidence(uint32_t param_types,
     TEE_Result status = TEE_SUCCESS;
 
     const char eat_profile[] = EAT_PROFILE;
-    const char measurement_type[] = MEASURMENT_TYPE;
     const uint8_t *psa_implementation_id =
         (const uint8_t *)IMPLEMENTATION_ID;
     const size_t psa_implementation_id_len = IMPLEMENTATION_ID_LEN;
@@ -119,6 +121,8 @@ static TEE_Result cmd_get_cbor_evidence(uint32_t param_types,
     uint8_t pub_y[PUBKEY_COORD_SIZE] = {0};
 
     uint8_t measurement_value[TEE_SHA256_HASH_SIZE] = {0};
+    uint8_t tee_measurement[TEE_SHA256_HASH_SIZE] = {0};
+    char os_version[OS_VERSION_MAX_LEN] = {0};
     size_t b64_measurement_value_len = TEE_SHA256_HASH_SIZE * 2;
     char b64_measurement_value[TEE_SHA256_HASH_SIZE * 2] = {0};
 
@@ -216,6 +220,45 @@ static TEE_Result cmd_get_cbor_evidence(uint32_t param_types,
     b64_measurement_value[b64_measurement_value_len] = '\0';
     DMSG("b64_measurement_value: %s", b64_measurement_value);
 
+    /* Measure the OP-TEE OS (core .text + .rodata) for the PRoT component */
+    status = get_hash_tee_memory(tee_measurement, TEE_SHA256_HASH_SIZE);
+    if (status != TEE_SUCCESS)
+        return status;
+
+    /*
+     * OP-TEE OS version: first whitespace-delimited token of core_v_str,
+     * e.g. "4.6.0" (the build banner is "<ver> (<cc>) #<n> <date> <arch>").
+     */
+    {
+        size_t i = 0;
+
+        while (i < sizeof(os_version) - 1 && core_v_str[i] &&
+               core_v_str[i] != ' ') {
+            os_version[i] = core_v_str[i];
+            i++;
+        }
+        os_version[i] = '\0';
+        if (os_version[0] == '\0')
+            memcpy(os_version, "unknown", sizeof("unknown"));
+    }
+    DMSG("OP-TEE OS version: %s", os_version);
+
+    /*
+     * For provisioning: log the PRoT (OP-TEE OS) measurement in base64 so it
+     * can be captured once from a device boot and registered as the Veraison
+     * reference value (psa.refval-id label "PRoT").
+     */
+    {
+        size_t b64_tee_len = TEE_SHA256_HASH_SIZE * 2;
+        char b64_tee[TEE_SHA256_HASH_SIZE * 2] = {0};
+
+        if (base64_encode(tee_measurement, TEE_SHA256_HASH_SIZE, b64_tee,
+                          &b64_tee_len) == 1) {
+            b64_tee[b64_tee_len] = '\0';
+            DMSG("PRoT (OP-TEE OS) measurement-value b64: %s", b64_tee);
+        }
+    }
+
     /* Allocate CBOR/COSE work buffers on heap to avoid PTA stack overflow */
     void *heap_cbor = malloc(512);
     void *heap_cose = malloc(512);
@@ -227,12 +270,32 @@ static TEE_Result cmd_get_cbor_evidence(uint32_t param_types,
     UsefulBuf buffuer_for_cbor = {heap_cbor, 512};
     UsefulBuf buffer_for_cose = {heap_cose, 512};
 
+    /* Build the Software Components: ARoT (this TA) + PRoT (OP-TEE OS) */
+    struct psa_sw_component components[] = {
+        {
+            .measurement_type = MEASURMENT_TYPE,
+            .measurement_value = measurement_value,
+            .measurement_value_len = TEE_SHA256_HASH_SIZE,
+            .version = NULL,
+            .signer_id = signer_id,
+            .signer_id_len = SIGNER_ID_LEN,
+        },
+        {
+            .measurement_type = MEASUREMENT_TYPE_TEE_OS,
+            .measurement_value = tee_measurement,
+            .measurement_value_len = TEE_SHA256_HASH_SIZE,
+            .version = os_version,
+            .signer_id = signer_id,
+            .signer_id_len = SIGNER_ID_LEN,
+        },
+    };
+
     /* Encode evidence to CBOR */
     UsefulBufC ubc_cbor_evidence = encode_evidence_to_cbor(
         eat_profile, psa_client_id, psa_security_lifecycle,
-        psa_implementation_id, psa_implementation_id_len, measurement_type,
-        signer_id, SIGNER_ID_LEN, psa_instance_id, INSTANCE_ID_LEN, nonce,
-        nonce_sz, measurement_value, TEE_SHA256_HASH_SIZE, buffuer_for_cbor);
+        psa_implementation_id, psa_implementation_id_len, components,
+        sizeof(components) / sizeof(components[0]), psa_instance_id,
+        INSTANCE_ID_LEN, nonce, nonce_sz, buffuer_for_cbor);
     if (UsefulBuf_IsNULLC(ubc_cbor_evidence)) {
         DMSG("Failed to encode evidence to CBOR");
         free(heap_cbor);

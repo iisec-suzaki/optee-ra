@@ -341,6 +341,12 @@ Attestation result:
                         "measurement-type": "ARoT",
                         "measurement-value": "Qjf7I3AQkjFoBQBbhrKrYPX/toHhnmfZeingk5oE6jA=",
                         "signer-id": "rLsRx+TaIXIFUjzkzhokWuGiOa48a/2eeHH35di66Gs="
+                    },
+                    {
+                        "measurement-type": "PRoT",
+                        "measurement-value": "GEXvNatCVOIWXWTrDuDroAeUoynz136EUnSEp42BGhM=",
+                        "signer-id": "rLsRx+TaIXIFUjzkzhokWuGiOa48a/2eeHH35di66Gs=",
+                        "version": "4.6.0"
                     }
                 ]
             }
@@ -358,6 +364,40 @@ Runtime Opaque [affirming]: the Attester's executing Target Environment and Atte
 Storage Opaque [affirming]: the Attester encrypts all secrets in persistent storage via using keys which are never visible outside an HSM or the Trusted Execution Environment hardware.
 Sourced Data [none]: The Evidence received is insufficient to make a conclusion.
 ```
+
+> **OP-TEE OS version (the `PRoT` software component).** In addition to the
+> `ARoT` component (which measures the Trusted Application), the evidence
+> includes a second software component with `measurement-type` `"PRoT"` that
+> reports the **OP-TEE OS version** in its `version` field (e.g. `"4.6.0"`), as
+> shown above.
+>
+> The `measurement-value` is a runtime hash of the immutable core (`.text` +
+> `.rodata`). It is **build-specific** (OP-TEE embeds the build timestamp in
+> `core_v_str`, which is part of the hashed `.rodata`), so it changes whenever
+> the OP-TEE OS is rebuilt — and the `PRoT` reference value therefore has to
+> be (re-)registered for every released build. Compute it offline from the
+> build artifact with
+> [provisoning/compute-prot-refval.py](provisoning/compute-prot-refval.py)
+> (no need to boot the image or raise the core log level):
+>
+> ```bash
+> ./provisoning/compute-prot-refval.py path/to/tee.elf
+> ```
+>
+> Put the printed `sha-256;...` digest into the `PRoT` measurement of
+> `provisoning/data/comid-psa-refval-*.json` before provisioning. With the
+> reference value registered the verifier checks the `PRoT` component like
+> any other: a matching build keeps `ear.status` `affirming`, while a
+> different OP-TEE build (or modified code) is flagged as `warning`. If no
+> `PRoT` reference value is provisioned, the verifier ignores the component
+> and `ear.status` is decided by the other components alone. Note: Yocto
+> builds are reproducible (`SOURCE_DATE_EPOCH` is set and the build counter
+> resets on clean builds), so rebuilding identical source does not change the
+> reference value; QEMU container builds are not reproducible and need a
+> fresh value per build. The `ARoT` reference value can likewise be computed
+> offline from the built TA with
+> [provisoning/compute-arot-refval.py](provisoning/compute-arot-refval.py)
+> (pass the `.ta` or the TA ELF), instead of capturing it from a first run.
 
 
 ### 6. Scenario for Sending Attestation Requests from Different TAs
@@ -430,7 +470,22 @@ Sourced Data [contraindicated]: Cryptographic validation of the Evidence has fai
 
 #### 6.2. Registering a New TA with Provisioning
 
-First, check the code hash value of the new TA. Currently, when a request to generate evidence is sent to the PTA, the code hash value is output to the secure terminal for debugging purposes. Specifically, there is a line like the one below, where `gw9v98IV8ozl5nHpsMwl9W5nGGC0bzAYMPShwvff0vY=` is the base64 encoded value of the code hash.
+First, check the code hash value of the new TA. The recommended way is to
+compute it **offline from the build artifact** with
+[provisoning/compute-arot-refval.py](provisoning/compute-arot-refval.py)
+(pass the new TA's `.ta` file or its ELF) — no run is required:
+
+```bash
+./provisoning/compute-arot-refval.py path/to/<uuid>.ta
+```
+
+Alternatively, on debug builds the same value can be captured from a run:
+when a request to generate evidence is sent to the PTA, the code hash value
+is output to the secure terminal for debugging purposes, in a line like the
+one below, where `gw9v98IV8ozl5nHpsMwl9W5nGGC0bzAYMPShwvff0vY=` is the base64
+encoded value of the code hash. (Note this debug output is unavailable on
+i.MX production builds, where the core log level is 0 — use the offline
+script there.)
 
 ```txt
 D/TC:? 0 cmd_get_cbor_evidence:82 b64_measurement_value: gw9v98IV8ozl5nHpsMwl9W5nGGC0bzAYMPShwvff0vY=

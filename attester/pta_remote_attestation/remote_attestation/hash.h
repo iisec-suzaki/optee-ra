@@ -5,4 +5,7 @@
 
 TEE_Result get_hash_ta_memory(uint8_t *out, size_t out_sz);
 
+/* Hash the OP-TEE OS (core) .text + .rodata into @out (>= 32 bytes). */
+TEE_Result get_hash_tee_memory(uint8_t *out, size_t out_sz);
+
 #endif /* PTA_REMOTE_ATTESTATION_TA_HASH_H */

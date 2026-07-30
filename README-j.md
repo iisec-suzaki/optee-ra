@@ -297,6 +297,12 @@ Attestation result:
                         "measurement-type": "ARoT",
                         "measurement-value": "Qjf7I3AQkjFoBQBbhrKrYPX/toHhnmfZeingk5oE6jA=",
                         "signer-id": "rLsRx+TaIXIFUjzkzhokWuGiOa48a/2eeHH35di66Gs="
+                    },
+                    {
+                        "measurement-type": "PRoT",
+                        "measurement-value": "GEXvNatCVOIWXWTrDuDroAeUoynz136EUnSEp42BGhM=",
+                        "signer-id": "rLsRx+TaIXIFUjzkzhokWuGiOa48a/2eeHH35di66Gs=",
+                        "version": "4.6.0"
                     }
                 ]
             }
@@ -314,6 +320,37 @@ Runtime Opaque [affirming]: the Attester's executing Target Environment and Atte
 Storage Opaque [affirming]: the Attester encrypts all secrets in persistent storage via using keys which are never visible outside an HSM or the Trusted Execution Environment hardware.
 Sourced Data [none]: The Evidence received is insufficient to make a conclusion.
 ```
+
+> **OP-TEE OS のバージョン(`PRoT` ソフトウェアコンポーネント)。** TA を測定する
+> `ARoT` コンポーネントに加え、evidence には `measurement-type` が `"PRoT"` の
+> 2 つ目のソフトウェアコンポーネントが含まれ、その `version` フィールドに
+> **OP-TEE OS のバージョン**(例: `"4.6.0"`)が入ります(上記参照)。
+>
+> `measurement-value` はコアの不変領域(`.text` + `.rodata`)の実行時ハッシュで、
+> **ビルド固有**の値です(OP-TEE は `core_v_str` にビルド日時を埋め込み、それが
+> 測定対象の `.rodata` に含まれるため、OP-TEE OS を再ビルドすると変わります)。
+> そのため `PRoT` の参照値は**リリースビルドごとに登録(更新)**します。参照値は
+> イメージを起動したりコアのログレベルを上げたりしなくても、ビルド成果物から
+> [provisoning/compute-prot-refval.py](provisoning/compute-prot-refval.py) で
+> オフライン計算できます:
+>
+> ```bash
+> ./provisoning/compute-prot-refval.py path/to/tee.elf
+> ```
+>
+> 出力された `sha-256;...` ダイジェストを
+> `provisoning/data/comid-psa-refval-*.json` の `PRoT` measurement に記載して
+> プロビジョニングしてください。参照値を登録すると検証側は `PRoT` も他の
+> コンポーネントと同様に照合します: 一致するビルドなら `ear.status` は
+> `affirming` のまま、異なる OP-TEE ビルド(またはコード改変)は `warning` として
+> 検出されます。参照値を登録しない場合は、このコンポーネントは照合対象外として
+> 無視され、`ear.status` は他のコンポーネントだけで決まります。なお Yocto
+> ビルドは再現可能(`SOURCE_DATE_EPOCH` 設定済み・クリーンビルドでビルドカウンタ
+> がリセット)なので、同一ソースの再ビルドで参照値は変わりません。QEMU コンテナ
+> ビルドは非再現のため、ビルドごとに値の取り直しが必要です。`ARoT` の参照値も
+> 同様に、初回実行からの取得ではなく
+> [provisoning/compute-arot-refval.py](provisoning/compute-arot-refval.py)
+> (`.ta` または TA の ELF を渡す)でビルド成果物からオフライン計算できます。
 
 ### 6. 異なる TA からアテステーションリクエストを送信するシナリオ
 
@@ -383,7 +420,20 @@ Sourced Data [contraindicated]: Cryptographic validation of the Evidence has fai
 
 #### 6.2. provisioning で新たな TA を登録する
 
-はじめに、新たな TA のコードハッシュ値を確認します。現在、PTA に evidence 生成リクエストを送ると、secure terminal にコードハッシュ値がデバッグ用に出力される実装になっています。具体的には以下のような一行があり、`gw9v98IV8ozl5nHpsMwl9W5nGGC0bzAYMPShwvff0vY=` がコードハッシュ値を base64 エンコードした値です。
+はじめに、新たな TA のコードハッシュ値を確認します。推奨は、ビルド成果物から
+[provisoning/compute-arot-refval.py](provisoning/compute-arot-refval.py)
+で**オフライン計算**する方法です(新しい TA の `.ta` ファイルまたは ELF を渡します。実行は不要です):
+
+```bash
+./provisoning/compute-arot-refval.py path/to/<uuid>.ta
+```
+
+別の方法として、デバッグビルドでは実行時の出力からも取得できます。PTA に
+evidence 生成リクエストを送ると、secure terminal にコードハッシュ値がデバッグ用に
+出力されます。具体的には以下のような一行があり、`gw9v98IV8ozl5nHpsMwl9W5nGGC0bzAYMPShwvff0vY=`
+がコードハッシュ値を base64 エンコードした値です。(注意: i.MX の本番ビルドは
+コアログレベルが 0 のためこのデバッグ出力は得られません。実機ではオフライン計算を
+使ってください。)
 ```txt
 D/TC:? 0 cmd_get_cbor_evidence:82 b64_measurement_value: gw9v98IV8ozl5nHpsMwl9W5nGGC0bzAYMPShwvff0vY=
 ```

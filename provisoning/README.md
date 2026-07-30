@@ -88,3 +88,25 @@ You can automatically execute the above steps by running the following command.
 ```
 
 If you omit the argument, `qemu` is used.
+
+## Computing the Reference Values Offline
+
+The `measurement-value` digests registered in `data/comid-psa-refval-*.json`
+can be computed directly from the build artifacts — no need to boot the image
+or capture debug logs (on i.MX production builds the core log level is 0, so
+the offline computation is the only way):
+
+```sh
+# ARoT (the TA measurement): pass the signed .ta or the TA ELF
+./compute-arot-refval.py path/to/<uuid>.ta
+
+# PRoT (the OP-TEE OS measurement): pass the core ELF
+./compute-prot-refval.py path/to/tee.elf
+```
+
+Each prints the `sha-256;<base64>` digest to put into the corresponding
+measurement entry. Both were verified on QEMU to be identical to the runtime
+measurements emitted by the PTA. Note the PRoT value is build-specific
+(OP-TEE embeds the build timestamp in the hashed `.rodata`), so recompute and
+re-provision it for every released build; the ARoT value only changes when
+the TA binary changes. Requires `pyelftools` (`pip install pyelftools`).
