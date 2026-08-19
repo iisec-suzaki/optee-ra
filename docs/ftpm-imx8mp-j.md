@@ -30,7 +30,7 @@ Application として動かす Yocto イメージのビルド方法と、Linux �
 
 ```
 MACHINE_FEATURES:append = " optee-ftpm"
-IMAGE_INSTALL:append = " optee-ftpm tpm2-tools kernel-module-tpm-ftpm-tee"
+IMAGE_INSTALL:append = " optee-ftpm tpm2-tools libtss2-tcti-device kernel-module-tpm-ftpm-tee"
 ```
 
 その後リビルドします。以下の `bitbake` コマンドは `yocto.sh` のビルド

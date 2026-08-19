@@ -29,7 +29,7 @@ the file lives at `${YOCTO_DIR}/build/conf/local.conf` on the host):
 
 ```
 MACHINE_FEATURES:append = " optee-ftpm"
-IMAGE_INSTALL:append = " optee-ftpm tpm2-tools kernel-module-tpm-ftpm-tee"
+IMAGE_INSTALL:append = " optee-ftpm tpm2-tools libtss2-tcti-device kernel-module-tpm-ftpm-tee"
 ```
 
 Then rebuild. The `bitbake` commands below run inside the `yocto.sh` build
