@@ -83,9 +83,15 @@ veraison clear-stores
 ./run.sh qemu
 # i.MX 8M Plus
 ./run.sh imx
+# i.MX 8M Plus のビルド別バリアント(CAAM vs CPU 署名比較用、
+# docs/performance-measurement-j.md 参照)
+./run.sh imx-caam
+./run.sh imx-cpu
 ```
 
-引数を省略した場合は `qemu` が使われます。
+引数を省略した場合は `qemu` が使われます。環境名は
+`data/comid-psa-refval-<env>.json` / `data/comid-psa-ta-<env>.json` の
+ファイルペアに対応します。
 
 ## 参照値のオフライン計算
 

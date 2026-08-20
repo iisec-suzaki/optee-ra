@@ -22,6 +22,10 @@ S = "${WORKDIR}/src"
 TA_DEV_KIT_DIR = "${STAGING_INCDIR}/optee/export-user_ta"
 TEEC_EXPORT = "${STAGING_DIR_HOST}${prefix}"
 
+# Performance measurement logging in the TA (set "y" in local.conf, together
+# with the optee-os flag; see optee-os_%.imx.bbappend)
+CFG_REMOTE_ATTESTATION_PERF ?= "n"
+
 # Rust configuration - rust-apiclient FFI library
 CARGO_SRC_DIR = "${S}/host/rust-ffi/coserv-rs"
 CARGO_MANIFEST_PATH = "${S}/host/rust-ffi/coserv-rs/Cargo.toml"
@@ -95,7 +99,8 @@ do_compile() {
     oe_runmake V=1 \
         TA_DEV_KIT_DIR=${TA_DEV_KIT_DIR} \
         CROSS_COMPILE=${HOST_PREFIX} \
-        LIBGCC_LOCATE_CFLAGS="--sysroot=${STAGING_DIR_HOST}"
+        LIBGCC_LOCATE_CFLAGS="--sysroot=${STAGING_DIR_HOST}" \
+        CFG_REMOTE_ATTESTATION_PERF=${CFG_REMOTE_ATTESTATION_PERF}
 
     # Build host application
     cd ${S}/host

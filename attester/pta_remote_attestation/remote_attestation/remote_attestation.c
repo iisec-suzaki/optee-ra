@@ -5,10 +5,15 @@
 #include "base64.h"
 #include "cbor.h"
 #include "hash.h"
+#include "perf.h"
 #include "sign.h"
 #include <crypto/crypto.h>
 #include <stdlib.h>
 #include <string.h>
+
+/* Perf-log key-path label, valid inside cmd_get_cbor_evidence() */
+#define RA_PERF_KM \
+    ra_perf_keymode(serialized_black_key, serialized_black_key_len)
 
 #ifdef CFG_NXP_CAAM
 #include <caam_key.h>
@@ -99,6 +104,12 @@ static int32_t derive_client_id(const uint8_t *ta_uuid, size_t uuid_len) {
 
 static TEE_Result cmd_get_cbor_evidence(uint32_t param_types,
                                         TEE_Param params[TEE_NUM_PARAMS]) {
+    RA_PERF_DECL(t_cmd);
+    RA_PERF_DECL(t);
+
+    RA_PERF_RESET();
+    RA_PERF_START(t_cmd);
+
     const uint8_t *nonce = params[0].memref.buffer;
     const size_t nonce_sz = params[0].memref.size;
     uint8_t *output_buffer = params[1].memref.buffer;
@@ -152,27 +163,6 @@ static TEE_Result cmd_get_cbor_evidence(uint32_t param_types,
     if (!output_buffer || !(*output_buffer_len))
         return TEE_ERROR_BAD_PARAMETERS;
 
-    /* Populate signer-id and lifecycle from platform fuses or fallback */
-#ifdef CFG_NXP_CAAM
-    status = ocotp_read_srk_hash(signer_id);
-    if (status != TEE_SUCCESS)
-        return status;
-
-    {
-        uint32_t lifecycle_val = 0;
-        status = ocotp_get_lifecycle(&lifecycle_val);
-        if (status != TEE_SUCCESS)
-            return status;
-        psa_security_lifecycle = (int)lifecycle_val;
-    }
-#else
-    {
-        const uint8_t fallback_signer[SIGNER_ID_LEN] = {SIGNER_ID_TEST_VALUE};
-        memcpy(signer_id, fallback_signer, SIGNER_ID_LEN);
-        psa_security_lifecycle = LIFECYCLE_DEFAULT;
-    }
-#endif
-
     /*
      * param[3] wire format (optional):
      *   PubX(32 bytes) || PubY(32 bytes) || key_blob(N bytes)
@@ -182,6 +172,9 @@ static TEE_Result cmd_get_cbor_evidence(uint32_t param_types,
      *   instance_id = 0x01 || SHA-256(0x04 || PubX || PubY)
      *
      * When absent, the embedded test key's public coordinates are used.
+     *
+     * Parsed before any measured operation so the perf logs can label
+     * every event with the key path (RA_PERF_KM).
      */
     if (TEE_PARAM_TYPE_GET(param_types, 3) == TEE_PARAM_TYPE_MEMREF_INPUT) {
         const uint8_t *p3 = params[3].memref.buffer;
@@ -201,15 +194,45 @@ static TEE_Result cmd_get_cbor_evidence(uint32_t param_types,
             return status;
     }
 
+    /* Populate signer-id and lifecycle from platform fuses or fallback */
+#ifdef CFG_NXP_CAAM
+    RA_PERF_START(t);
+    status = ocotp_read_srk_hash(signer_id);
+    if (status != TEE_SUCCESS)
+        return status;
+    RA_PERF_STOP(t, "ocotp_srk", RA_PERF_KM);
+
+    {
+        uint32_t lifecycle_val = 0;
+
+        RA_PERF_START(t);
+        status = ocotp_get_lifecycle(&lifecycle_val);
+        if (status != TEE_SUCCESS)
+            return status;
+        RA_PERF_STOP(t, "ocotp_lifecycle", RA_PERF_KM);
+        psa_security_lifecycle = (int)lifecycle_val;
+    }
+#else
+    {
+        const uint8_t fallback_signer[SIGNER_ID_LEN] = {SIGNER_ID_TEST_VALUE};
+        memcpy(signer_id, fallback_signer, SIGNER_ID_LEN);
+        psa_security_lifecycle = LIFECYCLE_DEFAULT;
+    }
+#endif
+
     /* Compute PSA instance-id from public key */
+    RA_PERF_START(t);
     status = compute_instance_id(pub_x, pub_y, psa_instance_id);
     if (status != TEE_SUCCESS)
         return status;
+    RA_PERF_STOP(t, "instance_id", RA_PERF_KM);
 
     /* Calculate measurement hash of memory */
+    RA_PERF_START(t);
     status = get_hash_ta_memory(measurement_value, TEE_SHA256_HASH_SIZE);
     if (status != TEE_SUCCESS)
         return status;
+    RA_PERF_STOP(t, "hash_ta", RA_PERF_KM);
 
     /* For debug print */
     if (base64_encode(measurement_value, TEE_SHA256_HASH_SIZE,
@@ -221,9 +244,11 @@ static TEE_Result cmd_get_cbor_evidence(uint32_t param_types,
     DMSG("b64_measurement_value: %s", b64_measurement_value);
 
     /* Measure the OP-TEE OS (core .text + .rodata) for the PRoT component */
+    RA_PERF_START(t);
     status = get_hash_tee_memory(tee_measurement, TEE_SHA256_HASH_SIZE);
     if (status != TEE_SUCCESS)
         return status;
+    RA_PERF_STOP(t, "hash_tee", RA_PERF_KM);
 
     /*
      * OP-TEE OS version: first whitespace-delimited token of core_v_str,
@@ -291,6 +316,7 @@ static TEE_Result cmd_get_cbor_evidence(uint32_t param_types,
     };
 
     /* Encode evidence to CBOR */
+    RA_PERF_START(t);
     UsefulBufC ubc_cbor_evidence = encode_evidence_to_cbor(
         eat_profile, psa_client_id, psa_security_lifecycle,
         psa_implementation_id, psa_implementation_id_len, components,
@@ -302,8 +328,10 @@ static TEE_Result cmd_get_cbor_evidence(uint32_t param_types,
         free(heap_cose);
         return TEE_ERROR_GENERIC;
     }
+    RA_PERF_STOP(t, "cbor_encode", RA_PERF_KM);
 
     /* Sign the CBOR and generate a COSE evidence */
+    RA_PERF_START(t);
     UsefulBufC cose_evidence =
         generate_cose(ubc_cbor_evidence, buffer_for_cose,
                       serialized_black_key, serialized_black_key_len);
@@ -313,6 +341,7 @@ static TEE_Result cmd_get_cbor_evidence(uint32_t param_types,
         free(heap_cose);
         return TEE_ERROR_GENERIC;
     }
+    RA_PERF_STOP(t, "cose_sign1", RA_PERF_KM);
 
     /* Copy COSE evidence for return buffer */
     memcpy(output_buffer, cose_evidence.ptr, cose_evidence.len);
@@ -320,6 +349,14 @@ static TEE_Result cmd_get_cbor_evidence(uint32_t param_types,
 
     free(heap_cbor);
     free(heap_cose);
+
+    /*
+     * All timestamps are taken before any RA_PERF line is printed: the
+     * (slow, synchronous) console writes happen only in the flush below.
+     */
+    RA_PERF_STOP(t_cmd, "cmd_total", RA_PERF_KM);
+    RA_PERF_FLUSH();
+
     return TEE_SUCCESS;
 }
 
@@ -341,8 +378,12 @@ static TEE_Result cmd_generate_keypair(uint32_t param_types,
     size_t d_len, x_len, y_len;
     const size_t sec_size = 32; /* P-256 */
 
+    RA_PERF_DECL(t);
+
     if (param_types != exp_pt)
         return TEE_ERROR_BAD_PARAMETERS;
+
+    RA_PERF_RESET();
 
     res = crypto_acipher_alloc_ecc_keypair(&key, TEE_TYPE_ECDSA_KEYPAIR,
                                            sec_size * 8);
@@ -350,9 +391,11 @@ static TEE_Result cmd_generate_keypair(uint32_t param_types,
         return res;
     key.curve = TEE_ECC_CURVE_NIST_P256;
 
+    RA_PERF_START(t);
     res = crypto_acipher_gen_ecc_key(&key, sec_size * 8);
     if (res != TEE_SUCCESS)
         goto out_free;
+    RA_PERF_STOP(t, "keypair_generate", "-");
 
     d_len = crypto_bignum_num_bytes(key.d);
     x_len = crypto_bignum_num_bytes(key.x);
@@ -389,6 +432,7 @@ out_free:
     crypto_bignum_free(&key.d);
     crypto_bignum_free(&key.x);
     crypto_bignum_free(&key.y);
+    RA_PERF_FLUSH();
     return res;
 }
 
@@ -408,11 +452,17 @@ static TEE_Result cmd_convert_to_blackkey(uint32_t param_types,
     size_t need_size = 0;
     const size_t sec_size = 32; /* P-256 */
 
+    RA_PERF_DECL(t_cmd);
+    RA_PERF_DECL(t);
+
     if (param_types != exp_pt)
         return TEE_ERROR_BAD_PARAMETERS;
 
     if (!plain_d || plain_d_size != sec_size)
         return TEE_ERROR_BAD_PARAMETERS;
+
+    RA_PERF_RESET();
+    RA_PERF_START(t_cmd);
 
     caam_key.key_type = CAAM_KEY_PLAIN_TEXT;
     caam_key.sec_size = plain_d_size;
@@ -424,11 +474,13 @@ static TEE_Result cmd_convert_to_blackkey(uint32_t param_types,
 
     memcpy(caam_key.buf.data, plain_d, plain_d_size);
 
+    RA_PERF_START(t);
     caam_res = caam_key_black_encapsulation(&caam_key, CAAM_KEY_BLACK_CCM);
     if (caam_res != CAAM_NO_ERROR) {
         res = caam_to_tee_status(caam_res);
         goto out;
     }
+    RA_PERF_STOP(t, "blackkey_encap", "-");
 
     caam_res = caam_key_serialized_size(&caam_key, &need_size);
     if (caam_res != CAAM_NO_ERROR) {
@@ -454,6 +506,8 @@ static TEE_Result cmd_convert_to_blackkey(uint32_t param_types,
 
 out:
     caam_key_free(&caam_key);
+    RA_PERF_STOP(t_cmd, "convert_total", "-");
+    RA_PERF_FLUSH();
     return res;
 }
 #endif /* CFG_NXP_CAAM */
