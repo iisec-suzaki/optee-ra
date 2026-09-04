@@ -22,6 +22,19 @@ RUN curl https://storage.googleapis.com/git-repo-downloads/repo > /usr/local/bin
 
 # Set locale
 RUN locale-gen en_US.UTF-8
+
+# Pin vanilla GNU tar 1.34: Ubuntu's security-patched tar (1.34+dfsg-1ubuntu0.1.22.04.6)
+# switched to *at()-based extraction that Yocto's pseudo cannot intercept, breaking
+# every do_package with "Cannot mkdir: Bad address".
+RUN curl -fsSL https://ftp.gnu.org/gnu/tar/tar-1.34.tar.xz -o /tmp/tar.tar.xz \
+    && echo "63bebd26879c5e1eea4352f0d03c991f966aeb3ddeb3c7445c902568d5411d28  /tmp/tar.tar.xz" | sha256sum -c - \
+    && tar -xf /tmp/tar.tar.xz -C /tmp \
+    && cd /tmp/tar-1.34 \
+    && FORCE_UNSAFE_CONFIGURE=1 ./configure --prefix=/usr/local >/dev/null \
+    && make -j"$(nproc)" >/dev/null \
+    && make install >/dev/null \
+    && rm -rf /tmp/tar-1.34 /tmp/tar.tar.xz \
+    && /usr/local/bin/tar --version | head -1
 ENV LANG=en_US.UTF-8
 ENV LANGUAGE=en_US:en
 ENV LC_ALL=en_US.UTF-8
