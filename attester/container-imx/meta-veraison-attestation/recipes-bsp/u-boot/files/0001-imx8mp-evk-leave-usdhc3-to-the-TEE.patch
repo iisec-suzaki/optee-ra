@@ -1,0 +1,22 @@
+imx8mp-evk: leave the on-board eMMC (uSDHC3) to the TEE
+
+OP-TEE drives uSDHC3 from the secure world for its RPMB storage. U-Boot
+proper still probed the controller (bootstd scans every MMC device) and
+left both it and the card in 8-bit HS400ES with its own clock, so the
+first RPMB access after that no longer matched the state OP-TEE had set
+up. The board boots from SD and never needs the eMMC in U-Boot, so keep
+U-Boot off it entirely.
+
+Upstream-Status: Inappropriate [board configuration for the TEE-owned eMMC]
+
+--- a/arch/arm/dts/imx8mp-evk-u-boot.dtsi
++++ b/arch/arm/dts/imx8mp-evk-u-boot.dtsi
+@@ -232,6 +232,8 @@
+ };
+ 
+ &usdhc3 {
++	/* Owned by OP-TEE (RPMB secure storage); never touched by U-Boot */
++	status = "disabled";
+ 	bootph-pre-ram;
+ 	mmc-hs400-1_8v;
+ 	mmc-hs400-enhanced-strobe;
