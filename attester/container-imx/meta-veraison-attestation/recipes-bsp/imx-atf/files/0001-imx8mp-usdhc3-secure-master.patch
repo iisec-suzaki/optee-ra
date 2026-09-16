@@ -1,0 +1,33 @@
+imx8mp: give the on-board eMMC controller (uSDHC3) to the secure world
+
+OP-TEE drives uSDHC3 from the secure world for its RPMB storage and DMAs
+RPMB frames straight into its own (TZASC-protected) memory. With the
+default CSU setting the controller is a non-secure bus master, so every
+such DMA is rejected once OP-TEE has locked the TZASC regions. Make the
+master secure, and while at it restrict the controller's registers to the
+secure world: U-Boot and Linux have the node disabled in their device
+trees and never touch it.
+
+Upstream-Status: Inappropriate [board configuration for the TEE-owned eMMC]
+
+--- a/plat/imx/imx8m/imx8mp/imx8mp_bl31_setup.c	2026-09-15 11:13:15.273287873 +0000
++++ b/plat/imx/imx8m/imx8mp/imx8mp_bl31_setup.c	2026-09-15 11:13:15.301287784 +0000
+@@ -155,6 +155,8 @@
+ 	CSU_CSLx(CSU_CSL_RDC, CSU_SEC_LEVEL_3, LOCKED),
+ 	CSU_CSLx(CSU_CSL_TZASC, CSU_SEC_LEVEL_5, LOCKED),
+ 	CSU_CSLx(CSU_CSL_CSU, CSU_SEC_LEVEL_5, LOCKED),
++	/* uSDHC3 registers: secure world only (OP-TEE owns the eMMC) */
++	CSU_CSLx(CSU_CSL_uSDHC3, CSU_SEC_LEVEL_4, LOCKED),
+ 
+ 	/* master HP0~1 */
+ 
+@@ -168,7 +170,8 @@
+ 	CSU_SA(CSU_SA_ENET1, NON_SEC_ACCESS, LOCKED),
+ 	CSU_SA(CSU_SA_USDHC1, NON_SEC_ACCESS, LOCKED),
+ 	CSU_SA(CSU_SA_USDHC2, NON_SEC_ACCESS, LOCKED),
+-	CSU_SA(CSU_SA_USDHC3, NON_SEC_ACCESS, LOCKED),
++	/* uSDHC3 (on-board eMMC) DMAs into OP-TEE memory: secure master */
++	CSU_SA(CSU_SA_USDHC3, SEC_ACCESS, LOCKED),
+ 	CSU_SA(CSU_SA_HUGO, NON_SEC_ACCESS, LOCKED),
+ 	CSU_SA(CSU_SA_DAP, NON_SEC_ACCESS, LOCKED),
+ 	CSU_SA(CSU_SA_SDMA2, NON_SEC_ACCESS, LOCKED),
