@@ -12,7 +12,7 @@ Microsoft のファームウェア TPM(`ms-tpm-20-ref`)を OP-TEE の Trusted Ap
 | ファイル | 目的 |
 |----------|------|
 | `recipes-security/optee-ftpm/optee-ftpm_%.bbappend` | `imx8mpevk` を許可(`COMPATIBLE_MACHINE`)し、TA を AArch64 でビルド |
-| `recipes-kernel/linux/linux-imx_%.bbappend` + `linux-imx/ftpm.cfg` | i.MX カーネルに `tpm_ftpm_tee` ドライバを組み込み(`CONFIG_TCG_FTPM_TEE=y`)、Linux が基板上 eMMC に触れないようにする(マシンフィーチャ `optee-ftpm` 設定時のみ) |
+| `recipes-kernel/linux/linux-imx_%.bbappend` + `linux-imx/ftpm.cfg` | i.MX カーネルに `tpm_ftpm_tee` ドライバを組み込み(`CONFIG_TCG_FTPM_TEE=y`)、IMA を有効化し、Linux が基板上 eMMC に触れないようにする(マシンフィーチャ `optee-ftpm` 設定時のみ) |
 | `recipes-security/optee/optee-os_%.imx.bbappend` | OP-TEE コア内 uSDHC ドライバとネイティブ RPMB バックエンド(`attester/optee-patches/`)を OP-TEE に組み込み、私有ストレージを RPMB のみにする(`CFG_REE_FS=n`) |
 | `recipes-bsp/u-boot/`, `recipes-bsp/imx-atf/` | U-Boot が基板上 eMMC に触れないようにする。BL31 で uSDHC3 をセキュアバスマスタにする |
 
@@ -56,11 +56,14 @@ dmesg | grep -iE "tpm|ima:"      # "No TPM chip found" が出ないこと、tpm0
 ls /dev/tpm0
 tpm2_getcap properties-fixed   # メーカー / ファームウェア情報
 tpm2_pcrread sha256:10         # IMA が計測すれば非ゼロ
+head /sys/kernel/security/ima/ascii_runtime_measurements
 ```
+
+フィーチャ有効時、U-Boot はカーネルに `ima_policy=tcb ima_template=ima-ng ima_hash=sha256` を渡します(`recipes-bsp/u-boot/` の U-Boot 環境パッチ)。これにより IMA は、すべての実行ファイル、マップされるライブラリ、カーネルモジュール、root が開くファイルを計測リストと PCR 10 に記録します。リストと PCR はどちらも揮発で、起動のたびにゼロから始まります。リストの各エントリのテンプレートハッシュをゼロの PCR に順に extend し直すと、fTPM から読んだ値が再現できます。リストは見ている間にも伸びるので、PCR とリストは続けて読んでください。
 
 ## 注意事項
 
 * **eMMC は TEE のもの**: この構成は U-Boot と Linux が基板上 eMMC を使わないことが前提で、SD からブートする EVK では成立します。唯一の eMMC からブートする製品や、eMMC を Linux のストレージに使う製品では別の設計(TEE 専用の記憶デバイス、または CAAM 由来のシードで動く揮発 fTPM)が必要です。
 * **RPMB 鍵の書き込みは取り消せない**: 「デバイスでの初回起動」を参照。
-* **ブートファームウェアは計測されない**: IMA はカーネル起動後から計測します。U-Boot とカーネルは PCR に extend されません(HAB のセキュアブートと RA の PRoT 計測が担います)。
+* **ブートファームウェアは計測されない**: IMA はカーネル起動後から計測します。U-Boot とカーネルは PCR に extend されません(HAB のセキュアブートと RA の PRoT 計測が担います)。そのため `boot_aggregate` はすべてゼロの PCR から計算されます。計測範囲が決まったら `CONFIG_IMA_WRITE_POLICY=y` により `tcb` ポリシーを実行時に差し替えられます。
 * フィーチャ有効時、`meta-arm` の bbappend が `CFG_CORE_HEAP_SIZE` を 128 KiB に固定します(fTPM は OP-TEE 汎用デフォルトの 64 KiB より多くの TEE コアヒープを必要とするため)。i.MX では NXP ツリーが元々全 i.MX プラットフォームを 128 KiB にしているため、実質的な変化はありません。
