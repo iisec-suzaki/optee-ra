@@ -819,5 +819,9 @@ QEMU/i.MX での有効化手順、CAAM ブラックキー使用有無の比較�
 プロトコルは [docs/performance-measurement-j.md](docs/performance-measurement-j.md)
 を参照してください。
 
+## i.MX8MP でのファームウェア TPM と IMA
+
+マシンフィーチャ `optee-ftpm` を付けると、イメージに Microsoft のファームウェア TPM が OP-TEE の early TA として入り、IMA がカーネル初期化中に見つけられるよう Linux より先に起動します。fTPM は状態を OP-TEE コア内ドライバ経由で eMMC の RPMB に保存するため、基板上の eMMC は TEE の専有になり、U-Boot は実行中のシステムを PCR 10 に計測する IMA の引数をカーネルに渡します。設計、有効化手順、制約は [docs/ftpm-imx8mp-j.md](docs/ftpm-imx8mp-j.md)、計測リストが fTPM の保証するものであることを TPM の quote で別マシンから確かめる手順 (基板側 `ima-quote`、検証者側 `attester/ima-quote/`)は [docs/ima-quote-j.md](docs/ima-quote-j.md) を参照してください。
+
 ## 謝辞
 研究は、JST、CREST、JPMJCR21M3 ([Zero Trust IoT プロジェクト](https://zt-iot.nii.ac.jp/)) の支援を受けたものです。

@@ -880,6 +880,10 @@ data collection). See [docs/performance-measurement.md](docs/performance-measure
 for the log-point list, how to enable it on QEMU/i.MX, and the recommended
 measurement protocol including the CAAM black-key on/off comparison.
 
+## Firmware TPM and IMA on i.MX8MP
+
+With the `optee-ftpm` machine feature the image carries Microsoft's firmware TPM as an OP-TEE early TA, started before Linux so that IMA finds it during kernel init. The fTPM keeps its state in the eMMC RPMB through an OP-TEE core driver, so the on-board eMMC belongs to the TEE, and U-Boot passes the IMA options that measure the running system into PCR 10. See [docs/ftpm-imx8mp.md](docs/ftpm-imx8mp.md) for the design, enablement and constraints, and [docs/ima-quote.md](docs/ima-quote.md) for checking on another machine, with a TPM quote, that a measurement list is the one the fTPM attested (`ima-quote` on the board, `attester/ima-quote/` on the verifier).
+
 ## Acknowlegement
 
 This work was supported by JST, CREST Grant Number JPMJCR21M3 ([ZeroTrust IoT Project](https://zt-iot.nii.ac.jp/en/)), Japan.
