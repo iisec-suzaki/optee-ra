@@ -1,0 +1,89 @@
+#!/bin/sh
+# ima-quote: produce a TPM quote of PCR 10 and the IMA measurement list it
+# covers, for verification on another machine (attester/ima-quote/ in the
+# repository). Follows the procedure agreed with IISEC, in this order:
+#
+#   1. tpm2_clear                       initialise the owner hierarchy
+#   2. EK (RSA)  -> persistent 0x81010001
+#   3. AK (RSA, SHA-256, RSASSA) from the EK -> persistent 0x81000002
+#   4. nonce (16 bytes; normally supplied by the verifier)
+#   5. tpm2_quote of sha256:10 with the nonce
+#   6. copy ak.pub, quote.msg, quote.sig, nonce, quote.pcr and the IMA list
+#      into verification/
+#
+# Additions: an optional nonce argument, and a hex dump of the verification/
+# directory at the end so it can be carried over the serial console (the
+# board has no network).
+#
+#   ima-quote [-k] [nonce-hex]
+#     -k          keep the existing EK/AK (skip tpm2_clear and key creation)
+#     nonce-hex   16..64 byte nonce from the verifier; a random one otherwise
+set -e
+
+KEEP=0
+if [ "$1" = "-k" ]; then KEEP=1; shift; fi
+NONCE_HEX="${1:-}"
+
+EK_HANDLE=0x81010001
+AK_HANDLE=0x81000002
+IMA_LIST=/sys/kernel/security/ima/ascii_runtime_measurements
+
+W=/root/ima-quote; rm -rf "$W"; mkdir -p "$W"; cd "$W"
+
+if [ $KEEP -eq 0 ]; then
+    echo "== Initialization"
+    tpm2_clear
+    tpm2_pcrread sha256:10
+    tail -n 3 "$IMA_LIST"
+
+    echo "== persistent handles before (expect none)"
+    tpm2_getcap handles-persistent
+
+    echo "== EK"
+    tpm2_createek -G rsa -u ek.pub -c ek.ctx
+    tpm2_evictcontrol -C o -c ek.ctx "$EK_HANDLE"
+    echo "== AK"
+    tpm2_createak -C "$EK_HANDLE" -c ak.ctx -G rsa -g sha256 -s rsassa -u ak.pub -n ak.name
+    tpm2_evictcontrol -C o -c ak.ctx "$AK_HANDLE"
+else
+    echo "== reusing the persistent EK/AK"
+    tpm2_readpublic -c "$AK_HANDLE" -o ak.pub >/dev/null
+fi
+
+echo "== persistent handles (expect $EK_HANDLE EK, $AK_HANDLE AK)"
+tpm2_getcap handles-persistent
+
+echo "== nonce"
+if [ -n "$NONCE_HEX" ]; then
+    # hex -> binary with nothing but the shell and printf (BusyBox has no xxd)
+    : > service_provider_nonce
+    h="$NONCE_HEX"
+    while [ -n "$h" ]; do
+        b=$(printf '%d' "0x$(printf '%.2s' "$h")")
+        printf "\\$(printf '%03o' "$b")" >> service_provider_nonce
+        h=$(printf '%s' "$h" | cut -c3-)
+    done
+else
+    dd if=/dev/urandom of=service_provider_nonce bs=16 count=1 2>/dev/null
+fi
+od -An -tx1 service_provider_nonce | tr -d ' \n'; echo
+
+echo "== quote of PCR 10"
+tpm2_quote \
+    --key-context="$AK_HANDLE" \
+    --pcr-list=sha256:10 \
+    --qualification=service_provider_nonce \
+    --message=quote.msg \
+    --signature=quote.sig \
+    --pcr=quote.pcr
+
+echo "== files for the verifier"
+mkdir -p verification
+cp ak.pub quote.msg quote.sig service_provider_nonce quote.pcr verification/
+cp "$IMA_LIST" verification/ascii_runtime_measurements
+ls -l verification
+wc -l verification/ascii_runtime_measurements
+
+echo "-----BEGIN VERIFICATION HEX-----"
+tar czf - verification | od -An -tx1 -v | tr -d ' \n'; echo
+echo "-----END VERIFICATION HEX-----"
