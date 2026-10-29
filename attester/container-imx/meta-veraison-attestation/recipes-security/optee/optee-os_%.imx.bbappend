@@ -60,3 +60,20 @@ do_configure:append() {
         echo "subdirs-y += remote_attestation" >> ${S}/core/pta/sub.mk
     fi
 }
+
+# Core uSDHC driver and native RPMB backend (attester/optee-patches): OP-TEE
+# reaches the on-board eMMC RPMB without tee-supplicant, so the fTPM can keep
+# its state there and start before Linux (IMA then finds a TPM). Private
+# storage moves entirely to RPMB (CFG_REE_FS=n) because a REE FS would need
+# the supplicant during kernel init. Gated on the optee-ftpm machine feature.
+USDHC_PATCHES_SRC ?= "/attester/optee-patches"
+EXTRA_OEMAKE:append = "${@bb.utils.contains('MACHINE_FEATURES', 'optee-ftpm', ' CFG_IMX_USDHC=y CFG_IMX_RPMB_NATIVE=y CFG_RPMB_FS=y CFG_RPMB_WRITE_KEY=y CFG_REE_FS=n', '', d)}"
+
+do_configure:append() {
+    if ${@bb.utils.contains('MACHINE_FEATURES', 'optee-ftpm', 'true', 'false', d)}; then
+        if [ ! -x "${USDHC_PATCHES_SRC}/apply-usdhc.sh" ]; then
+            bbfatal "uSDHC driver sources not found at ${USDHC_PATCHES_SRC}. Set USDHC_PATCHES_SRC or mount /attester."
+        fi
+        "${USDHC_PATCHES_SRC}/apply-usdhc.sh" "${S}"
+    fi
+}

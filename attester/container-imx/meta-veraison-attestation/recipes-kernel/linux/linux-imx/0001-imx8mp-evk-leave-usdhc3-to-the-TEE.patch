@@ -1,0 +1,22 @@
+arm64: dts: imx8mp-evk: leave the on-board eMMC (uSDHC3) to the TEE
+
+OP-TEE drives uSDHC3 from the secure world for its RPMB storage (fTPM
+state). Linux probing the same controller reconfigures both it and the
+card, so the two worlds would trample each other's transfers. The board
+boots from SD and nothing in Linux needs the eMMC, so keep the kernel
+off it.
+
+Upstream-Status: Inappropriate [board configuration for the TEE-owned eMMC]
+
+--- a/arch/arm64/boot/dts/freescale/imx8mp-evk.dts
++++ b/arch/arm64/boot/dts/freescale/imx8mp-evk.dts
+@@ -953,7 +953,8 @@
+ 	pinctrl-2 = <&pinctrl_usdhc3_200mhz>;
+ 	bus-width = <8>;
+ 	non-removable;
+-	status = "okay";
++	/* Owned by OP-TEE (RPMB secure storage); never touched by Linux */
++	status = "disabled";
+ };
+ 
+ &wdog1 {

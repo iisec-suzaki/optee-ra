@@ -1,0 +1,22 @@
+imx8mp-evk: measure the running system with IMA
+
+With the fTPM available from kernel init, turn IMA on for real: the
+built-in "tcb" policy measures every executable, mmapped library,
+kernel module and root-opened file into the measurement log and PCR 10,
+with the ima-ng template and SHA-256. Without a policy IMA records only
+boot_aggregate. The options go into mmcargs, which is what the board's
+default boot flow (SD, distro boot) uses.
+
+Upstream-Status: Inappropriate [board configuration for the fTPM/IMA setup]
+
+--- a/board/freescale/imx8mp_evk/imx8mp_evk.env
++++ b/board/freescale/imx8mp_evk/imx8mp_evk.env
+@@ -62,7 +62,7 @@
+ mmcroot=/dev/mmcblk1p2 rootwait rw
+ mmcautodetect=yes
+ scriptaddr=0x43500000
+-mmcargs=setenv bootargs ${jh_clk} ${mcore_clk} console=${console} root=${mmcroot}
++mmcargs=setenv bootargs ${jh_clk} ${mcore_clk} console=${console} root=${mmcroot} ima_policy=tcb ima_template=ima-ng ima_hash=sha256
+ prepare_mcore=setenv mcore_clk clk-imx8mp.mcore_booted
+ kernel_addr_r=CONFIG_SYS_LOAD_ADDR
+ loadimage=fatload mmc ${mmcdev}:${mmcpart} ${loadaddr} ${image}

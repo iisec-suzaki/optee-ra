@@ -1,0 +1,27 @@
+Enumerate the fTPM without waiting for tee-supplicant
+
+The TA is marked TA_FLAG_DEVICE_ENUM_SUPP, so the kernel only learns
+about it once tee-supplicant is running. On the i.MX8MP EVK that lands
+around 13 s into boot, long after IMA has looked for a TPM (2.9 s) and
+concluded there is none - a decision it never revisits, which leaves the
+measurement log unanchored for the rest of the boot.
+
+The flag exists because the TA's storage used to require the supplicant.
+That is no longer true when OP-TEE reaches RPMB from the core, so switch
+to TA_FLAG_DEVICE_ENUM, which enumerates the device while the OP-TEE
+driver probes.
+
+Upstream-Status: Inappropriate [depends on a platform-specific storage
+backend that is not upstream]
+
+--- a/Samples/ARM32-FirmwareTPM/optee_ta/fTPM/user_ta_header_defines.h
++++ b/Samples/ARM32-FirmwareTPM/optee_ta/fTPM/user_ta_header_defines.h
+@@ -45,7 +45,7 @@
+
+ #define TA_UUID                     TA_FTPM_UUID
+
+-#define TA_FLAGS                    (TA_FLAG_SINGLE_INSTANCE | TA_FLAG_INSTANCE_KEEP_ALIVE | TA_FLAG_DEVICE_ENUM_SUPP)
++#define TA_FLAGS                    (TA_FLAG_SINGLE_INSTANCE | TA_FLAG_INSTANCE_KEEP_ALIVE | TA_FLAG_DEVICE_ENUM)
+ #define TA_STACK_SIZE               (64 * 1024)
+ #define TA_DATA_SIZE                (32 * 1024)
+
